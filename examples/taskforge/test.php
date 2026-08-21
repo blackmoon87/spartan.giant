@@ -12,6 +12,12 @@ declare(strict_types=1);
 define('SPARTAN_TESTING', true);
 
 // ─── Autoloader ──────────────────────────────────────────────────────────────
+if (file_exists(__DIR__ . '/../../vendor/autoload.php')) {
+    require_once __DIR__ . '/../../vendor/autoload.php';
+} elseif (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require_once __DIR__ . '/vendor/autoload.php';
+}
+
 spl_autoload_register(function (string $class): void {
     $prefix = 'App\\';
     $baseDir = __DIR__ . '/src/';
@@ -70,6 +76,8 @@ try {
     // 1. APPLICATION BOOTSTRAPPING
     // ═══════════════════════════════════════════════════════════════════
     $config = require __DIR__ . '/config/config.php';
+    $config['base_path'] = __DIR__;
+    $config['db']['database'] = $dbPath;
     $app = new Application($config);
     $app->router->aliasMiddleware('auth', \Spartan\Middlewares\AuthMiddleware::class);
     $app->router->aliasMiddleware('csrf', \Spartan\Middlewares\CsrfMiddleware::class);

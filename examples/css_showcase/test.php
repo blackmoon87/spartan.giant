@@ -8,7 +8,11 @@ use Spartan\Application;
 use Spartan\Request;
 use Spartan\Response;
 
-define('SPARTAN_TESTING', true);
+if (file_exists(__DIR__ . '/../../vendor/autoload.php')) {
+    require_once __DIR__ . '/../../vendor/autoload.php';
+} elseif (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require_once __DIR__ . '/vendor/autoload.php';
+}
 
 require_once __DIR__ . '/../../framework/src/helpers.php';
 
@@ -46,6 +50,7 @@ echo "   SPARTAN CSS MULTI-SUPPORT SHOWCASE TEST SUITE                  \n";
 echo "═══════════════════════════════════════════════════════════════════\n\n";
 
 $config = require __DIR__ . '/config/config.php';
+$config['base_path'] = __DIR__;
 $app = new Application($config);
 
 require_once __DIR__ . '/routes/web.php';

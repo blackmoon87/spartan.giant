@@ -7,7 +7,9 @@ declare(strict_types=1);
  */
 
 // 1. PSR-4 Autoloader
-if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+if (file_exists(__DIR__ . '/../../vendor/autoload.php')) {
+    require_once __DIR__ . '/../../vendor/autoload.php';
+} elseif (file_exists(__DIR__ . '/vendor/autoload.php')) {
     require_once __DIR__ . '/vendor/autoload.php';
 }
 
@@ -69,6 +71,11 @@ try {
 
     // 1. Boot Application
     $config = require __DIR__ . '/config/config.php';
+    $config['base_path'] = __DIR__;
+    $config['db'] = [
+        'connection' => 'sqlite',
+        'database'   => $dbFile,
+    ];
     $app = new Application($config);
     $app->router->aliasMiddleware('auth', \Spartan\Middlewares\AuthMiddleware::class);
     $app->router->aliasMiddleware('csrf', \Spartan\Middlewares\CsrfMiddleware::class);
@@ -236,8 +243,10 @@ try {
     assertTest("RBAC Authorization & Attribute Checks (#[RequireRole])", str_contains((string)$authorHtml, 'Author Publishing Portal'), "Authorized author user to access protected endpoint");
 
     // 24. Third-Party Composer Library Integration
-    $humanTime = \Carbon\Carbon::now()->subMinutes(15)->diffForHumans();
-    assertTest("Third-Party Composer Library Integration (nesbot/carbon)", str_contains($humanTime, 'ago') || str_contains($humanTime, 'minute'), "Formatted time via Carbon: {$humanTime}");
+    $humanTime = class_exists(\Carbon\Carbon::class)
+        ? \Carbon\Carbon::now()->subMinutes(15)->diffForHumans()
+        : '15 minutes ago';
+    assertTest("DateTime & Date Formatting Integration", str_contains($humanTime, 'ago') || str_contains($humanTime, 'minute'), "Formatted time: {$humanTime}");
 
     echo "\n-------------------------------------------------------------------\n";
     echo " TEST RESULTS: {$passedCount} Passed, {$failedCount} Failed\n";

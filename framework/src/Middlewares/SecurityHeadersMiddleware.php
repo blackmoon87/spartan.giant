@@ -39,6 +39,10 @@ class SecurityHeadersMiddleware extends Middleware
 
     public function execute(Request $request, Response $response): void
     {
+        if (headers_sent()) {
+            return;
+        }
+
         // Prevent the page from being embedded in <iframe> on external sites (Clickjacking)
         header('X-Frame-Options: SAMEORIGIN');
 
