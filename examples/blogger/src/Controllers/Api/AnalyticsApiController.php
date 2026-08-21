@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers\Api;
 
-use App\Core\Controller;
+use Spartan\Controller;
 use App\Services\AnalyticsService;
 
 class AnalyticsApiController extends Controller

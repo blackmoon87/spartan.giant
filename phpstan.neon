@@ -1,0 +1,15 @@
+parameters:
+    level: 5
+    paths:
+        - framework/src
+    excludePaths:
+        analyseAndScan:
+            - framework/src/CacheDrivers/RedisCacheDriver.php
+    treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: false
+    ignoreErrors:
+        # The Application exposes $db through __get(); PHPStan cannot see it.
+        - '#Access to an undefined property Spartan\\Application::\$db#'
+        # Traits are part of the published API — applications use them, this package does not.
+        -
+            identifier: trait.unused

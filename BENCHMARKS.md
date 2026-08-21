@@ -1,90 +1,98 @@
-# Spartan vs Competitors — Stress Test & Performance Benchmark Report
+# Benchmarks
 
-> Benchmarks measured on Apple Silicon, PHP 8.4. 
-> Competitor metrics reflect baseline HTTP benchmarks for standard default application setups.
+Every number on this page was produced by a script in this repository, on a
+machine described below, and can be reproduced with the commands given. Nothing
+here is copied from another project's marketing material.
 
----
+## What changed, and why
 
-## ⚡ 1. Head-to-Head HTTP Performance
+Earlier versions of this page carried a table comparing Spartan's request rate
+against Laravel, Symfony, Slim and CodeIgniter. Those competitor figures were
+not measured here and could not be reproduced from this repository, so they have
+been removed rather than restated. A framework doing less work will always win a
+"hello world" chart; that tells you very little about an application that talks
+to a database, renders templates, and runs authorization.
 
-| Runtime / Framework | Requests / Sec (RPS) | Latency (Median) | Peak Memory | Cold Boot | Dependency Tree Size |
-|---|:---:|:---:|:---:|:---:|:---:|
-| 🚀 **Spartan (FrankenPHP Worker Mode)** | **24,500+ req/s** | **< 0.8 ms** | **6.2 MB** | **0 ms (Resident)** | **0 KB (0 packages)** |
-| ⚡ **Spartan (Standard PHP-FPM / CLI)** | **1,850+ req/s** | **9.8 ms** | **4.6 MB** | **~1.8 ms** | **0 KB (0 packages)** |
-| 🪶 **Slim 4** | 1,450 req/s | 13 ms | 5.2 MB | ~4 ms | ~2 MB (7 packages) |
-| 🔥 **CodeIgniter 4** | 920 req/s | 21 ms | 9.8 MB | ~15 ms | ~12 MB (2 packages) |
-| 🔴 **Laravel 11** | 380 req/s | 52 ms | 18.5 MB | ~55 ms | ~180 MB (30+ packages) |
-| 🎼 **Symfony 7** | 310 req/s | 64 ms | 22.0 MB | ~80 ms | ~250 MB (20+ packages) |
+What follows is the honest version: measurements of Spartan alone, with the
+method spelled out so you can check them, and a clear statement of what they do
+**not** show.
 
----
+## Environment
 
-## 🏎️ 2. Core Engine Micro-benchmarks (Operations / Sec)
+| | |
+|---|---|
+| Machine | Apple M2 Pro, macOS 26.5.2 |
+| PHP | 8.4.23 (CLI, NTS) |
+| OPcache | **disabled** — production with OPcache enabled will be faster |
+| Database | SQLite (in-memory for micro-benchmarks, file-backed for the HTTP test) |
+| Web server | PHP's built-in development server, single worker |
+| Date | 2026-08-19 |
 
-High-volume internal operations tested via `tests/stress_test.php` (320,000 total iterations):
+Run everything yourself:
 
-### A. DI Container Auto-Resolution (ops/sec)
-```
-Spartan             ████████████████████████████████ 2,133,290 ops/sec
-Slim 4 (PHP-DI)     ██████████████ 950,000 ops/sec
-Symfony Container   █████████ 620,000 ops/sec
-Laravel Container   ██████ 410,000 ops/sec
-```
-
-### B. Router Matching & Parameter Dispatch (req/sec)
-```
-Spartan             ████████████████████████████████ 858,885 req/sec
-FastRoute (Slim 4)  ████████████ 340,000 req/sec
-Symfony Router      ███████ 190,000 req/sec
-Laravel Router      █████ 140,000 req/sec
+```bash
+composer install
+php tests/stress_test.php          # component micro-benchmarks
+vendor/bin/phpunit                 # correctness suite (379 tests)
 ```
 
-### C. QueryBuilder SQL Generation & Binding (queries/sec)
-```
-Spartan             ████████████████████████████████ 632,751 queries/sec
-Doctrine DBAL       ██████████████ 280,000 queries/sec
-Laravel Eloquent    ████████ 165,000 queries/sec
-```
+## 1. Component micro-benchmarks
 
-### D. View Rendering / Template Compilation (renders/sec)
-```
-Spartan Blade       ████████████████████████████ 37,461 renders/sec
-Twig (Symfony 7)    ████████████████ 24,000 renders/sec
-Laravel 11 Blade    █████████████ 19,500 renders/sec
-```
+Median of three runs of `php tests/stress_test.php`. These measure framework
+components in-process, with no network and no HTTP stack.
 
----
+| Component | Operation | Throughput |
+|---|---|---|
+| DI Container | auto-resolution with reflection cache | ~2,160,000 ops/sec |
+| Router | match + parameter extraction, 100k dispatches | ~858,000 req/sec |
+| QueryBuilder | SQL generation and binding | ~611,000 queries/sec |
+| Database | SQLite inserts + reads, 10,000 rows | ~266,000 inserts/sec |
+| Cache | file driver read/write round trips | ~18,400 ops/sec |
+| Views | Blade compilation + render | ~41,100 renders/sec |
+| Peak memory | full stress run | 4.6 MB |
 
-## 📊 3. Full Stress Test Execution Summary
+The file cache is the slowest component by two orders of magnitude, because
+every operation is a real filesystem write with an exclusive lock. Use the Redis
+driver when cache throughput matters.
 
-Live output from `php tests/stress_test.php`:
+## 2. End-to-end HTTP
 
-```text
-===================================================================
-           SPARTAN FRAMEWORK STRESS TEST & BENCHMARK              
-===================================================================
+`ab -n 3000 -c 10` against the skeleton application's home page — a route that
+boots the framework, opens SQLite, runs a query, and renders a view through the
+layout.
 
-1. Testing DI Container Auto-Resolution (100,000 iterations)... DONE (46.88 ms | 2,133,290 ops/sec)
-2. Testing Router Matching & Param Extraction (100,000 iterations)... DONE (116.43 ms | 858,885 req/sec)
-3. Testing QueryBuilder SQL Generation & Binding (50,000 iterations)... DONE (79.02 ms | 632,751 queries/sec)
-4. Testing Database In-Memory SQLite Writes & Reads (10,000 rows)... DONE (36.51 ms | 273,874 inserts/sec | Active count: 5000)
-5. Testing File Cache Read/Write Operations (50,000 operations)... DONE (3012.62 ms | 16,597 ops/sec)
-6. Testing Blade View Compilation & Rendering (10,000 renders)... DONE (266.94 ms | 37,461 renders/sec)
+| Route | Result |
+|---|---|
+| `/` (DB query + view render) | **2,353 req/sec**, 4.25 ms mean, 0 failed |
+| `/nope` (404 through the router) | 2,389 req/sec, 0 failed |
 
-───────────────────────────────────────────────────────────────────
-                     STRESS TEST COMPLETED                          
-───────────────────────────────────────────────────────────────────
-  Total Execution Time : 6.87 seconds
-  Memory Used          : 0.59 MB
-  Peak Memory Usage    : 4.61 MB
-───────────────────────────────────────────────────────────────────
+Reproduce:
+
+```bash
+cp .env.example .env      # set DB_CONNECTION=sqlite, DB_DATABASE=storage/app.sqlite
+php spartan migrate
+php -S 127.0.0.1:8910 -t public &
+ab -n 3000 -c 10 http://127.0.0.1:8910/
 ```
 
----
+**Read this number carefully.** PHP's built-in server handles one request at a
+time and is not a production server; OPcache was off. This is a floor for a
+realistic page, not a headline throughput figure. A tuned PHP-FPM or FrankenPHP
+deployment with OPcache will be substantially faster — but that configuration
+has not been measured here, so no figure is quoted for it.
 
-## 🎯 4. Why Spartan Outperforms Competitors
+## 3. What these numbers do not tell you
 
-1. **Native FrankenPHP Worker Mode**: Runs resident in RAM without bootstrapping on every request. Built-in per-request state resetters guarantee zero memory leaks and complete request isolation.
-2. **Zero Boot Overhead**: Boots in **~1.8 ms** loading only lightweight core files vs 300+ autoloaded classes and dozens of service providers in heavier frameworks.
-3. **Reflection Metadata Caching**: DI Container caches class constructor signatures on first resolution for instant subsequent lookups.
-4. **Ultra-lean Memory Footprint**: Peak memory is **4.6 MB** (vs 18–25 MB in heavy frameworks), avoiding CPU-intensive garbage collection cycles.
-5. **Pure Native PHP 8.1+**: Zero third-party Composer package friction or supply-chain baggage.
+- **Nothing about other frameworks.** No comparison was run, so none is claimed.
+- **Nothing about your application.** Component throughput is dominated by
+  whatever your controllers actually do — database round trips, HTTP calls,
+  serialization.
+- **Nothing about concurrency.** Every measurement is single-process.
+- **Nothing about worker mode.** Spartan supports FrankenPHP worker mode, but no
+  worker-mode benchmark is published here because none has been run under
+  conditions worth quoting.
+
+The parts of the design that genuinely help performance are unglamorous and
+easy to verify by reading the code: zero dependencies to autoload, compiled
+route patterns, cached reflection metadata for both the container and the
+authorization attributes, and a template compiler that writes plain PHP.

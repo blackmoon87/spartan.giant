@@ -59,7 +59,7 @@
             <div class="links">
                 <a href="/dashboard">Dashboard</a>
                 <a href="/projects">Projects</a>
-                <?php if(($__user = \App\Core\Gate::resolveUser()) && method_exists($__user, 'hasRole') && $__user->hasRole('admin')): ?>
+                <?php if(($__user = \Spartan\Gate::resolveUser()) && method_exists($__user, 'hasRole') && $__user->hasRole('admin')): ?>
                 <a href="/admin">Admin</a>
                 <?php endif; ?>
                 <?php if(auth()->check()): ?>

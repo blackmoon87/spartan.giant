@@ -1,8 +1,15 @@
 # Spartan — Lightweight PHP MVC Framework
 
-> Zero dependencies. Full control. Production-ready security.
+[![CI](https://github.com/blackmoon87/spartan/actions/workflows/ci.yml/badge.svg)](https://github.com/blackmoon87/spartan/actions/workflows/ci.yml)
+[![PHP 8.1+](https://img.shields.io/badge/php-8.1%2B-777bb4)](https://www.php.net/)
+[![PHPStan level 5](https://img.shields.io/badge/PHPStan-level%205-brightgreen)](phpstan.neon)
+[![License MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-A hand-crafted PHP 8.1+ MVC framework built for developers who want to understand every line of their stack. No magic, no bloat — just clean architecture with serious security baked in.
+> Zero dependencies. Full control. A stack you can read end to end.
+
+A hand-crafted PHP 8.1+ MVC framework for developers who want to understand every line of their stack. No magic, no bloat — clean architecture with security taken seriously, in about 6,000 lines of readable code.
+
+Tested with **379 PHPUnit tests**, analysed at **PHPStan level 5**, and exercised on **PHP 8.1 through 8.4** in CI.
 
 ![TaskForge Dashboard](docs/screenshots/taskforge_dashboard_v3.png)
 
@@ -31,15 +38,29 @@ A hand-crafted PHP 8.1+ MVC framework built for developers who want to understan
 
 ---
 
-## ⚡ Performance Benchmarks
+## ⚡ Performance
 
-| Framework | Requests / Sec (RPS) | Latency (Median) | Peak Memory | Cold Boot | Dependency Size |
-|-----------|:--------------------:|:----------------:|:-----------:|:---------:|:---------------:|
-| ⚡ **Spartan** | **1,827 req/s** | **10 ms** | **4.5 MB** | **~2 ms** | **0 KB (0 deps)** |
-| 🪶 **Slim 4** | 1,450 req/s | 13 ms | 5.2 MB | ~4 ms | ~2 MB (7 packages) |
-| 🔴 **Laravel 11** | 380 req/s | 52 ms | 18.5 MB | ~55 ms | ~180 MB (30+ packages) |
+Measured on this machine, with the method and caveats written down — see
+[BENCHMARKS.md](BENCHMARKS.md) to reproduce them. No cross-framework comparison
+is published, because none has been run here.
 
-👉 Read full benchmarks and stress test report in [BENCHMARKS.md](BENCHMARKS.md).
+| Measurement | Result |
+|---|---|
+| Home page over HTTP (DB query + view render, dev server, OPcache off) | **2,353 req/sec**, 4.25 ms mean |
+| Router match + parameter extraction | ~858,000 dispatches/sec |
+| DI container auto-resolution | ~2,160,000 ops/sec |
+| QueryBuilder SQL generation | ~611,000 queries/sec |
+| Blade compile + render | ~41,100 renders/sec |
+| Peak memory, full stress run | 4.6 MB |
+| Runtime dependencies | 0 |
+
+```bash
+php tests/stress_test.php   # component micro-benchmarks
+```
+
+What actually makes it quick is unglamorous: nothing to autoload, route patterns
+compiled once, reflection metadata cached for the container and the
+authorization attributes, and a template compiler that emits plain PHP.
 
 ---
 
@@ -53,12 +74,24 @@ A hand-crafted PHP 8.1+ MVC framework built for developers who want to understan
 
 ## Getting Started
 
-### 1. Clone
+### 1. Install
+
+Add the framework to an existing project:
+
+```bash
+composer require spartan/framework
+```
+
+Or start from this repository, which doubles as an application skeleton:
 
 ```bash
 git clone https://github.com/blackmoon87/spartan.git
 cd spartan
+composer install
 ```
+
+The framework itself lives in `framework/src` under the `Spartan\\` namespace;
+your application code lives in `src/` under `App\\`.
 
 ### 2. Configure
 
@@ -85,16 +118,12 @@ DB_PASSWORD=
 ### 3. Run
 
 ```bash
-# Built-in PHP server
-php -S localhost:8000 -t public
-
-# With native built-in autoloader (Zero-dependency)
-php -S localhost:8000 -t public
-
-# Or with Composer autoloader (optional)
-composer dump-autoload
 php -S localhost:8000 -t public
 ```
+
+Composer is optional for running the skeleton — `public/index.php` falls back to
+a built-in PSR-4 autoloader that maps both `Spartan\\` and `App\\`. It is
+required for the test suite and static analysis.
 
 ### 4. Database Migrations & Seeds (optional)
 
@@ -142,35 +171,38 @@ php spartan worker --loop
 │   ├── web.php                 # Public web routes
 │   ├── admin.php               # Protected routes
 │   └── api.php                 # JSON API routes
-├── src/
-│   ├── Core/                   # Spartan Framework Kernel (37 files, Zero dependencies)
-│   │   ├── Application.php     # App orchestrator & singleton
-│   │   ├── Auth.php            # Session-backed Auth system
-│   │   ├── Attributes/         # PHP 8.1 Attributes (#[RequireRole], #[RequirePermission])
-│   │   ├── Cache.php           # Cache facade (File & Redis)
-│   │   ├── CacheDrivers/       # FileCacheDriver, RedisCacheDriver
-│   │   ├── Container.php       # DI Container with reflection parameter caching
-│   │   ├── Controller.php      # Base Controller
-│   │   ├── Database.php        # PDO singleton connection pool
-│   │   ├── Database/           # Migrator, SqliteDialect, MysqlDialect
-│   │   ├── EventDispatcher.php # Sync & Async DB job queue event system
-│   │   ├── ExceptionHandler.php# Error & Exception rendering
-│   │   ├── FormRequest.php     # Request base with auto-validation
-│   │   ├── Gate.php            # Abilities, Policies & GateEvaluator
-│   │   ├── JobQueue.php        # Async job runner with backoff
-│   │   ├── Logger.php          # PSR-3 Daily rotated logger
-│   │   ├── Middleware.php      # Middleware interface & base
-│   │   ├── Model.php           # Active Record ORM & relationships
-│   │   ├── QueryBuilder.php    # Dialect-aware Fluent QueryBuilder
-│   │   ├── RelationQuery.php   # Relationship executor (hasMany, hasOne, belongsTo)
-│   │   ├── Request.php         # HTTP Request & method spoofing
-│   │   ├── Response.php        # HTTP Response & security headers
-│   │   ├── Router.php          # Dynamic router & attribute inspector
-│   │   ├── Session.php         # Hardened Session manager
-│   │   ├── Traits/             # HasAuthorization trait
-│   │   ├── Validator.php       # 16 validation rules (unique, regex, etc.)
-│   │   ├── View.php            # Blade compiler (20+ directives) & layouts
-│   │   └── helpers.php         # Global functions (url, asset, auth, config)
+├── framework/
+│   └── src/                    # The spartan/framework package — namespace Spartan\
+│       ├── Application.php     # App orchestrator & singleton
+│       ├── Attributes/         # PHP 8.1 attributes (#[RequireRole], #[RequirePermission])
+│       ├── Auth.php            # Session-backed auth
+│       ├── Cache.php           # Cache facade (file & Redis)
+│       ├── CacheDrivers/       # FileCacheDriver, RedisCacheDriver
+│       ├── Container.php       # DI container with reflection caching
+│       ├── Controller.php      # Base controller
+│       ├── Database.php        # PDO connection
+│       ├── Database/           # Migrator, SqliteDialect, MysqlDialect
+│       ├── EventDispatcher.php # Sync & async events
+│       ├── ExceptionHandler.php# Error rendering
+│       ├── FormRequest.php     # Request base with auto-validation
+│       ├── Gate.php            # Abilities, policies & GateEvaluator
+│       ├── JobQueue.php        # Async job runner with backoff
+│       ├── Logger.php          # PSR-3 daily rotated logger
+│       ├── Middleware.php      # Middleware base
+│       ├── Middlewares/        # CSRF, auth, rate limit, security headers
+│       ├── Model.php           # Active record & relationships
+│       ├── Paths.php           # Project root resolver
+│       ├── QueryBuilder.php    # Dialect-aware fluent query builder
+│       ├── RelationQuery.php   # hasMany / hasOne / belongsTo executor
+│       ├── Request.php         # HTTP request, method spoofing, trusted proxies
+│       ├── Response.php        # HTTP response & open-redirect guard
+│       ├── Router.php          # Router & attribute inspector
+│       ├── Session.php         # Hardened session manager
+│       ├── Traits/             # HasAuthorization
+│       ├── Validator.php       # Validation rules
+│       ├── View.php            # Blade-style compiler & layouts
+│       └── helpers.php         # url(), asset(), auth(), env(), config()
+├── src/                        # Your application — namespace App\
 │   ├── Controllers/
 │   ├── Models/
 │   ├── Services/
@@ -184,8 +216,11 @@ php spartan worker --loop
 │   ├── logs/                   # PSR-3 daily log files
 │   └── views/                  # Compiled Blade PHP templates
 ├── tests/
-│   ├── run_tests.php           # Core Kernel test suite (22 tests)
-│   └── stress_test.php         # High-volume stress & micro-benchmark suite
+│   ├── Unit/                   # PHPUnit suite (379 tests)
+│   ├── Fixtures/               # Test doubles & fixture models
+│   ├── bootstrap.php           # Boots the app against a throwaway SQLite DB
+│   ├── run_tests.php           # Dependency-free kernel suite (33 checks)
+│   └── stress_test.php         # Micro-benchmark suite
 ├── .env
 ├── .env.example
 ├── .cursorrules                # AI IDE architecture rules
@@ -443,7 +478,7 @@ if ($v->fails()) {
 ### Daily Logger (PSR-3)
 
 ```php
-use App\Core\Application;
+use Spartan\Application;
 
 // Log informative message with placeholder injection
 Application::$app->logger->info("User {username} performed an action", [
@@ -473,7 +508,7 @@ Encapsulate your validation and authorization logic into dedicated Request objec
 ```php
 namespace App\Controllers\Requests;
 
-use App\Core\FormRequest;
+use Spartan\FormRequest;
 
 class StorePostRequest extends FormRequest
 {
@@ -534,9 +569,9 @@ Protect entire Controller classes or specific action methods using native PHP 8.
 ```php
 namespace App\Controllers;
 
-use App\Core\Attributes\RequireRole;
-use App\Core\Attributes\RequirePermission;
-use App\Core\Controller;
+use Spartan\Attributes\RequireRole;
+use Spartan\Attributes\RequirePermission;
+use Spartan\Controller;
 
 #[RequireRole('author')]
 #[RequirePermission('publish_posts')]
@@ -553,7 +588,7 @@ class AuthorPostController extends Controller
 
 ### Third-Party Composer Library Integration
 
-Spartan maintains a zero-dependency core kernel (`src/Core/`), but supports 100% seamless integration with any third-party Composer packages:
+Spartan maintains a zero-dependency core kernel (`framework/src/`), but supports 100% seamless integration with any third-party Composer packages:
 
 ```bash
 # Example: Install Carbon DateTime library

@@ -46,12 +46,12 @@ $_SERVER['REQUEST_URI'] = '/';
 $_SERVER['SERVER_NAME'] = 'localhost';
 $_SERVER['SERVER_PORT'] = '8087';
 
-use App\Core\Application;
-use App\Core\Cache;
-use App\Core\Gate;
-use App\Core\QueryBuilder;
-use App\Core\Validator;
-use App\Core\Database\Migrator;
+use Spartan\Application;
+use Spartan\Cache;
+use Spartan\Gate;
+use Spartan\QueryBuilder;
+use Spartan\Validator;
+use Spartan\Database\Migrator;
 use App\Models\User;
 use App\Models\Project;
 use App\Models\Task;
@@ -71,8 +71,8 @@ try {
     // ═══════════════════════════════════════════════════════════════════
     $config = require __DIR__ . '/config/config.php';
     $app = new Application($config);
-    $app->router->aliasMiddleware('auth', \App\Middlewares\AuthMiddleware::class);
-    $app->router->aliasMiddleware('csrf', \App\Middlewares\CsrfMiddleware::class);
+    $app->router->aliasMiddleware('auth', \Spartan\Middlewares\AuthMiddleware::class);
+    $app->router->aliasMiddleware('csrf', \Spartan\Middlewares\CsrfMiddleware::class);
     assertTest("1. Application Bootstrapping", isset(Application::$app), "Singleton instance created with SQLite config");
 
     // ═══════════════════════════════════════════════════════════════════
@@ -305,7 +305,7 @@ try {
     // ═══════════════════════════════════════════════════════════════════
     $_SERVER['REQUEST_METHOD'] = 'POST';
     $_POST['_method'] = 'PUT';
-    $req = new \App\Core\Request();
+    $req = new \Spartan\Request();
     assertTest("17. Request — method spoofing (_method=PUT)",
         $req->getMethod() === 'PUT',
         "POST with _method=PUT resolved to: {$req->getMethod()}"
@@ -316,7 +316,7 @@ try {
     // ═══════════════════════════════════════════════════════════════════
     // 18. RESPONSE — JSON serialization
     // ═══════════════════════════════════════════════════════════════════
-    $resp = new \App\Core\Response();
+    $resp = new \Spartan\Response();
     $resp->json(['status' => 'ok', 'items' => [1, 2, 3]], 200);
     ob_start();
     $resp->send();
@@ -330,7 +330,7 @@ try {
     // ═══════════════════════════════════════════════════════════════════
     // 19. RESPONSE — Open redirect prevention
     // ═══════════════════════════════════════════════════════════════════
-    $resp2 = new \App\Core\Response();
+    $resp2 = new \Spartan\Response();
     $resp2->redirect('https://evil.com/steal');
     // The Response class should prevent redirecting to external URLs
     assertTest("19. Response — Open redirect prevention", true,
@@ -342,7 +342,7 @@ try {
     // ═══════════════════════════════════════════════════════════════════
     $_SERVER['REQUEST_URI'] = '/project/spartan-core';
     $_SERVER['REQUEST_METHOD'] = 'GET';
-    $testReq = new \App\Core\Request();
+    $testReq = new \Spartan\Request();
     $app->router->setRequest($testReq);
     $app->router->get('/project/{slug}', function (string $slug) { return "slug={$slug}"; });
     $output = $app->router->resolve();
@@ -421,8 +421,8 @@ try {
     // 26. RBAC — #[RequireRole] + #[RequirePermission] attribute scan
     // ═══════════════════════════════════════════════════════════════════
     $ref = new \ReflectionClass(\App\Controllers\AdminController::class);
-    $roleAttrs = $ref->getAttributes(\App\Core\Attributes\RequireRole::class);
-    $permAttrs = $ref->getAttributes(\App\Core\Attributes\RequirePermission::class);
+    $roleAttrs = $ref->getAttributes(\Spartan\Attributes\RequireRole::class);
+    $permAttrs = $ref->getAttributes(\Spartan\Attributes\RequirePermission::class);
     $roleVal = $roleAttrs[0]->newInstance()->roles[0] ?? null;
     $permVal = $permAttrs[0]->newInstance()->permissions[0] ?? null;
     assertTest("26. RBAC — #[RequireRole] + #[RequirePermission] attributes",
@@ -495,7 +495,7 @@ try {
     // ═══════════════════════════════════════════════════════════════════
     // 32. JOB QUEUE — processPending worker loop
     // ═══════════════════════════════════════════════════════════════════
-    $queue = new \App\Core\JobQueue($app->db);
+    $queue = new \Spartan\JobQueue($app->db);
     $processed = $queue->processPending();
     $doneJobs = (new QueryBuilder($app->db, 'jobs'))->where('status', 'done')->count();
     $processingJobs = (new QueryBuilder($app->db, 'jobs'))->where('status', 'processing')->count();
@@ -561,10 +561,10 @@ try {
     // ═══════════════════════════════════════════════════════════════════
     // 35. MIDDLEWARE — CSRF + SecurityHeaders
     // ═══════════════════════════════════════════════════════════════════
-    $secMiddleware = new \App\Middlewares\SecurityHeadersMiddleware();
-    $testResp = new \App\Core\Response();
+    $secMiddleware = new \Spartan\Middlewares\SecurityHeadersMiddleware();
+    $testResp = new \Spartan\Response();
     $_SERVER['REQUEST_METHOD'] = 'GET';
-    $secMiddleware->execute(new \App\Core\Request(), $testResp);
+    $secMiddleware->execute(new \Spartan\Request(), $testResp);
     // Verify headers were set (stored internally in Response)
     assertTest("35. Middleware — SecurityHeaders execution", true,
         "X-Content-Type-Options, X-Frame-Options, Referrer-Policy, X-XSS-Protection set"

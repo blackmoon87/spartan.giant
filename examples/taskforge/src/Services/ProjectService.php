@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Core\Application;
-use App\Core\QueryBuilder;
+use Spartan\Application;
+use Spartan\QueryBuilder;
 use App\Models\Project;
 
 class ProjectService

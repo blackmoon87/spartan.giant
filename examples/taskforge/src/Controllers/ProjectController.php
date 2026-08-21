@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Controllers\Requests\StoreProjectRequest;
-use App\Core\Controller;
+use Spartan\Controller;
 use App\Models\Project;
 use App\Models\Task;
 use App\Services\ProjectService;

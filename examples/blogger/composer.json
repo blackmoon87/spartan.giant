@@ -1,14 +1,27 @@
 {
-    "name": "spartan/framework",
-    "description": "Spartan — Lightweight PHP 8.1+ MVC Framework. Zero dependencies, full control, production-ready security.",
+    "name": "spartan/example-blogger",
+    "description": "Spartan example — multi-author blog with RBAC, comments, analytics and a REST API.",
     "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.1",
+        "nesbot/carbon": "^3.13",
+        "spartan/framework": "@dev"
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../../",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
     "autoload": {
         "psr-4": {
             "App\\": "src/"
         }
     },
-    "require": {
-        "php": ">=8.1",
-        "nesbot/carbon": "^3.13"
-    }
+    "minimum-stability": "dev",
+    "prefer-stable": true
 }

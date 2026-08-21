@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers\Requests;
 
-use App\Core\FormRequest;
+use Spartan\FormRequest;
 
 class StoreTaskRequest extends FormRequest
 {

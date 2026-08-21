@@ -44,6 +44,10 @@ function loadEnv(string $path): void {
 loadEnv(dirname(__DIR__) . '/.env');
 
 return [
+    // Project root — every framework default (storage, views, migrations,
+    // relative SQLite paths) resolves from here.
+    'base_path' => dirname(__DIR__),
+
     'app' => [
         'name' => $_ENV['APP_NAME'] ?? 'PHP MVC Boilerplate',
         'env' => $_ENV['APP_ENV'] ?? 'production',
@@ -63,6 +67,12 @@ return [
         'database'   => $_ENV['DB_DATABASE']   ?? '',
         'username'   => $_ENV['DB_USERNAME']   ?? 'root',
         'password'   => $_ENV['DB_PASSWORD']   ?? '',
+        // Read/Write Splitting (opt-in — leave false for single-DB setups)
+        'read_write_split' => ($_ENV['DB_READ_WRITE_SPLIT'] ?? 'false') === 'true',
+        'read' => array_values(array_filter([
+            !empty($_ENV['DB_READ_HOST_1']) ? ['host' => $_ENV['DB_READ_HOST_1'], 'port' => $_ENV['DB_READ_PORT_1'] ?? '3306'] : null,
+            !empty($_ENV['DB_READ_HOST_2']) ? ['host' => $_ENV['DB_READ_HOST_2'], 'port' => $_ENV['DB_READ_PORT_2'] ?? '3306'] : null,
+        ])),
     ],
     'cache' => [
         'driver'      => $_ENV['CACHE_DRIVER']   ?? 'file',
@@ -71,6 +81,14 @@ return [
         'redis_port'  => $_ENV['REDIS_PORT']     ?? '6379',
         'redis_password' => $_ENV['REDIS_PASSWORD'] ?? '',
         'redis_db'    => $_ENV['REDIS_DB']       ?? '0',
+    ],
+    'queue' => [
+        'driver' => $_ENV['QUEUE_DRIVER'] ?? 'database',  // 'database' | 'redis'
+    ],
+    'logging' => [
+        'format'    => $_ENV['LOG_FORMAT']  ?? 'text',     // 'text' | 'json'
+        'channel'   => $_ENV['LOG_CHANNEL'] ?? 'app',
+        'min_level' => $_ENV['LOG_LEVEL']   ?? 'DEBUG',
     ],
     'rate_limit' => [
         'default_limit'  => (int) ($_ENV['RATE_LIMIT_DEFAULT'] ?? 60),

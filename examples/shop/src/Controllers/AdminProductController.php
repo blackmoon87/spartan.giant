@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Controllers\Requests\StoreProductRequest;
-use App\Core\Attributes\RequirePermission;
-use App\Core\Attributes\RequireRole;
-use App\Core\Controller;
+use Spartan\Attributes\RequirePermission;
+use Spartan\Attributes\RequireRole;
+use Spartan\Controller;
 use App\Models\Category;
 use App\Models\Product;
 

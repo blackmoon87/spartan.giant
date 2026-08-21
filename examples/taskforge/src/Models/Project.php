@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Core\Model;
-use App\Core\RelationQuery;
+use Spartan\Model;
+use Spartan\RelationQuery;
 
 class Project extends Model
 {

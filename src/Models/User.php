@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Core\Model;
+use Spartan\Model;
 use PDOException;
 
 class User extends Model
 {
-    use \App\Core\Traits\HasAuthorization;
+    use \Spartan\Traits\HasAuthorization;
 
     protected string $table = 'users';
 

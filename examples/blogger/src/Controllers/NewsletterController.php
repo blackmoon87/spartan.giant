@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Controllers\Requests\SubscribeNewsletterRequest;
-use App\Core\Controller;
+use Spartan\Controller;
 use App\Services\AuditService;
 use App\Services\NewsletterService;
 

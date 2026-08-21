@@ -20,7 +20,7 @@
                 <span style="display: inline-block; width: 6px; height: 6px; background: var(--primary); border-radius: 50%;"></span>
                 Controllers & Views
             </h3>
-            <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.5;">Extend <code>App\Core\Controller</code> to sanitize data, access requests, render layout/view templates, and return JSON responses.</p>
+            <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.5;">Extend <code>Spartan\Controller</code> to sanitize data, access requests, render layout/view templates, and return JSON responses.</p>
         </div>
 
         <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); padding: 1.5rem; border-radius: 12px; transition: background 0.3s;" onmouseover="this.style.background='rgba(99,102,241,0.05)'" onmouseout="this.style.background='rgba(255,255,255,0.02)'">

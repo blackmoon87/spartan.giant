@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Core\Application;
-use App\Core\Cache;
-use App\Core\Controller;
-use App\Core\QueryBuilder;
+use Spartan\Application;
+use Spartan\Cache;
+use Spartan\Controller;
+use Spartan\QueryBuilder;
 use App\Models\Project;
 use App\Models\Task;
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use App\Controllers\Api\AnalyticsApiController;
 use App\Controllers\Api\PostApiController;
-use App\Core\Application;
+use Spartan\Application;
 
 /** @var Application $app */
 

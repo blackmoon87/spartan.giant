@@ -7,7 +7,7 @@ declare(strict_types=1);
  * All routes here should be protected with AuthMiddleware.
  *
  * Example:
- *   use App\Middlewares\AuthMiddleware;
+ *   use Spartan\Middlewares\AuthMiddleware;
  *   $app->router->get('/admin', [AdminController::class, 'index'], [AuthMiddleware::class]);
  */
 

@@ -24,10 +24,10 @@ spl_autoload_register(function (string $class): void {
     }
 });
 
-use App\Core\Application;
-use App\Core\Database\Migrator;
-use App\Core\JobQueue;
-use App\Core\Request;
+use Spartan\Application;
+use Spartan\Database\Migrator;
+use Spartan\JobQueue;
+use Spartan\Request;
 use App\Models\AuditLog;
 use App\Models\Category;
 use App\Models\Comment;
@@ -70,8 +70,8 @@ try {
     // 1. Boot Application
     $config = require __DIR__ . '/config/config.php';
     $app = new Application($config);
-    $app->router->aliasMiddleware('auth', \App\Middlewares\AuthMiddleware::class);
-    $app->router->aliasMiddleware('csrf', \App\Middlewares\CsrfMiddleware::class);
+    $app->router->aliasMiddleware('auth', \Spartan\Middlewares\AuthMiddleware::class);
+    $app->router->aliasMiddleware('csrf', \Spartan\Middlewares\CsrfMiddleware::class);
     assertTest("Application Bootstrapping", isset(Application::$app), "Config loaded with SQLite driver");
 
     // 2. Database Migrations

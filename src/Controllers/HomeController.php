@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Core\Controller;
-use App\Core\Application;
+use Spartan\Controller;
+use Spartan\Application;
 use App\Models\User;
 
 class HomeController extends Controller

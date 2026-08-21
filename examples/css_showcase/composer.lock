@@ -1,0 +1,92 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+        "This file is @generated automatically"
+    ],
+    "content-hash": "ea7f82c7d42dcf85f325544ed3f806d6",
+    "packages": [
+        {
+            "name": "spartan/framework",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../..",
+                "reference": "f0f73a0b968c7d61ece5f7ce2fa766ae5fc8019f"
+            },
+            "require": {
+                "php": ">=8.1"
+            },
+            "require-dev": {
+                "phpstan/phpstan": "^1.11",
+                "phpunit/phpunit": "^10.5"
+            },
+            "suggest": {
+                "ext-pdo": "Required for the QueryBuilder, Model layer, migrations and the job queue",
+                "ext-redis": "Enables the Redis cache driver (CACHE_DRIVER=redis)"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Spartan\\": "framework/src/"
+                },
+                "files": [
+                    "framework/src/helpers.php"
+                ]
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "App\\": "src/",
+                    "Spartan\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "phpunit"
+                ],
+                "test:kernel": [
+                    "php tests/run_tests.php"
+                ],
+                "analyse": [
+                    "phpstan analyse"
+                ],
+                "bench": [
+                    "php tests/stress_test.php"
+                ],
+                "check": [
+                    "@analyse",
+                    "@test"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Spartan — a readable, dependency-free PHP 8.1+ MVC framework. Router, DI container, query builder, queue, auth and views in ~6k lines you can read end to end.",
+            "keywords": [
+                "framework",
+                "micro-framework",
+                "mvc",
+                "no-dependencies",
+                "php",
+                "router"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "dev",
+    "stability-flags": {
+        "spartan/framework": 20
+    },
+    "prefer-stable": true,
+    "prefer-lowest": false,
+    "platform": {
+        "php": ">=8.1"
+    },
+    "platform-dev": {},
+    "plugin-api-version": "2.9.0"
+}

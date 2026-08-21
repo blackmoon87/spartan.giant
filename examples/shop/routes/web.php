@@ -5,7 +5,7 @@ declare(strict_types=1);
 use App\Controllers\CartController;
 use App\Controllers\CheckoutController;
 use App\Controllers\ShopController;
-use App\Core\Application;
+use Spartan\Application;
 use App\Listeners\NotifyAdminListener;
 use App\Listeners\SendOrderEmailListener;
 use App\Listeners\UpdateStockListener;

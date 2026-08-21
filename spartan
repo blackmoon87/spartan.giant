@@ -11,25 +11,34 @@ $autoloadPath = __DIR__ . '/vendor/autoload.php';
 if (file_exists($autoloadPath)) {
     require_once $autoloadPath;
 } else {
-    spl_autoload_register(function (string $class): void {
-        $prefix  = 'App\\';
-        $baseDir = __DIR__ . '/src/';
-        $len     = strlen($prefix);
-        if (strncmp($prefix, $class, $len) !== 0) {
-            return;
-        }
-        $file = $baseDir . str_replace('\\', '/', substr($class, $len)) . '.php';
-        if (file_exists($file)) {
-            require_once $file;
+    $prefixes = [
+        'Spartan\\' => __DIR__ . '/framework/src/',
+        'App\\'     => __DIR__ . '/src/',
+    ];
+
+    spl_autoload_register(function (string $class) use ($prefixes): void {
+        foreach ($prefixes as $prefix => $baseDir) {
+            $len = strlen($prefix);
+            if (strncmp($prefix, $class, $len) !== 0) {
+                continue;
+            }
+            $file = $baseDir . str_replace('\\', '/', substr($class, $len)) . '.php';
+            if (file_exists($file)) {
+                require_once $file;
+                return;
+            }
         }
     });
+
+    require_once __DIR__ . '/framework/src/helpers.php';
 }
 
-use App\Core\Application;
-use App\Core\Database\Migrator;
-use App\Core\JobQueue;
+use Spartan\Application;
+use Spartan\Database\Migrator;
+use Spartan\JobQueue;
 
 $config = require __DIR__ . '/config/config.php';
+$config['base_path'] ??= __DIR__;
 $app = new Application($config);
 
 if ($app->db === null) {
@@ -86,13 +95,98 @@ switch ($command) {
         echo "Worker stopped.\n";
         break;
 
+    case 'config:cache':
+        $cachePath = __DIR__ . '/storage/cache/config.php';
+        $configObj = new \Spartan\Config($config);
+        // Merge environment-specific config if it exists
+        $envFile = __DIR__ . '/config/' . ($config['app']['env'] ?? 'production') . '.php';
+        $configObj->mergeFrom($envFile);
+        if ($configObj->cache($cachePath)) {
+            echo "Configuration cached successfully to storage/cache/config.php\n";
+        } else {
+            echo "Error: Failed to write configuration cache.\n";
+            exit(1);
+        }
+        break;
+
+    case 'config:clear':
+        $cachePath = __DIR__ . '/storage/cache/config.php';
+        if (file_exists($cachePath)) {
+            unlink($cachePath);
+            echo "Configuration cache cleared!\n";
+        } else {
+            echo "No configuration cache to clear.\n";
+        }
+        break;
+
+    case 'migrate:rollback':
+        echo "Rolling back migrations...\n";
+        $migrator = new Migrator($app->db);
+        $steps = (int) ($argv[2] ?? 1);
+        try {
+            $migrator->rollback($steps);
+            echo "Rollback completed!\n";
+        } catch (\Throwable $e) {
+            echo "Rollback failed: " . $e->getMessage() . "\n";
+            exit(1);
+        }
+        break;
+
+    case 'migrate:reset':
+        echo "Resetting all migrations...\n";
+        $migrator = new Migrator($app->db);
+        try {
+            $migrator->reset();
+            echo "All migrations rolled back!\n";
+        } catch (\Throwable $e) {
+            echo "Reset failed: " . $e->getMessage() . "\n";
+            exit(1);
+        }
+        break;
+
+    case 'migrate:fresh':
+        echo "Dropping all tables and re-migrating...\n";
+        $migrator = new Migrator($app->db);
+        try {
+            $migrator->fresh();
+            echo "Fresh migration completed!\n";
+        } catch (\Throwable $e) {
+            echo "Fresh migration failed: " . $e->getMessage() . "\n";
+            exit(1);
+        }
+        break;
+
+    case 'migrate:status':
+        $migrator = new Migrator($app->db);
+        $statuses = $migrator->status();
+        echo "Migration Status:\n";
+        foreach ($statuses as $s) {
+            $badge = $s['ran'] ? '✅' : '⏳';
+            $batch = $s['ran'] ? " (batch {$s['batch']})" : '';
+            echo "  {$badge} {$s['migration']}{$batch}\n";
+        }
+        break;
+
+    case 'health':
+        $health = new \Spartan\HealthCheck();
+        $result = $health->run();
+        echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n";
+        exit($result['status'] === 'healthy' ? 0 : 1);
+
     case 'help':
     default:
         echo "Spartan CLI Command Runner\n";
         echo "Usage:\n";
-        echo "  php spartan migrate       Run database migrations\n";
-        echo "  php spartan db:seed       Seed the database with records\n";
-        echo "  php spartan worker        Run the background job worker\n";
-        echo "  php spartan worker --loop Run the worker in a continuous loop\n";
+        echo "  php spartan migrate          Run database migrations\n";
+        echo "  php spartan migrate:rollback  Roll back the last batch\n";
+        echo "  php spartan migrate:reset     Roll back all migrations\n";
+        echo "  php spartan migrate:fresh     Drop all and re-migrate\n";
+        echo "  php spartan migrate:status    Show migration status\n";
+        echo "  php spartan db:seed           Seed the database with records\n";
+        echo "  php spartan worker            Run the background job worker\n";
+        echo "  php spartan worker --loop     Run the worker in a continuous loop\n";
+        echo "  php spartan config:cache      Cache the configuration\n";
+        echo "  php spartan config:clear      Clear the configuration cache\n";
+        echo "  php spartan health            Run system health check\n";
         break;
 }

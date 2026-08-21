@@ -69,14 +69,14 @@
 </div>
 <?php endif; ?>
 
-<?php if(\App\Core\Gate::check('manage_projects')): ?>
+<?php if(\Spartan\Gate::check('manage_projects')): ?>
 <div class="card" style="border-color: var(--primary);">
     <h2>🔧 Manager Actions</h2>
     <p style="color:var(--text-muted); font-size:.9rem;">You have project management permissions.</p>
 </div>
 <?php endif; ?>
 
-<?php if(\App\Core\Gate::denies('manage_users')): ?>
+<?php if(\Spartan\Gate::denies('manage_users')): ?>
 <div class="card" style="border-color: var(--border); opacity: .6;">
     <p style="color:var(--text-muted); font-size:.85rem;">🔒 Admin panel access requires <code>manage_users</code> permission.</p>
 </div>

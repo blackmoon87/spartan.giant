@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Core\Controller;
+use Spartan\Controller;
 use App\Models\User;
 
 class AuthController extends Controller

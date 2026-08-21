@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Controllers\Api\TaskApiController;
-use App\Core\Application;
+use Spartan\Application;
 
 /** @var Application $app */
 

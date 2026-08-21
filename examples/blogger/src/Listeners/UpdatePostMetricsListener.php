@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Listeners;
 
-use App\Core\Application;
+use Spartan\Application;
 
 class UpdatePostMetricsListener
 {

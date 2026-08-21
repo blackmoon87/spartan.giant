@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Core\Model;
+use Spartan\Model;
 
 class Comment extends Model
 {

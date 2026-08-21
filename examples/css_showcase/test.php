@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Examples\CssShowcase;
 
-use App\Core\Application;
-use App\Core\Request;
-use App\Core\Response;
+use Spartan\Application;
+use Spartan\Request;
+use Spartan\Response;
 
 define('SPARTAN_TESTING', true);
 
-require_once __DIR__ . '/src/Core/helpers.php';
+require_once __DIR__ . '/../../framework/src/helpers.php';
 
 spl_autoload_register(function (string $class): void {
     $prefix = 'App\\';

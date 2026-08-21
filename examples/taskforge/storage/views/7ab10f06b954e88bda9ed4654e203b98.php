@@ -4,7 +4,7 @@
 <?php $this->startSection('content'); ?>
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
     <h1>📁 Projects</h1>
-    <?php if(($__user = \App\Core\Gate::resolveUser()) && method_exists($__user, 'hasRole') && $__user->hasRole('admin', 'manager')): ?>
+    <?php if(($__user = \Spartan\Gate::resolveUser()) && method_exists($__user, 'hasRole') && $__user->hasRole('admin', 'manager')): ?>
     <a href="#new-project" class="btn" onclick="document.getElementById('new-project-form').style.display='block'">+ New Project</a>
     <?php endif; ?>
 </div>

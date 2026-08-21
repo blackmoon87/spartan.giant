@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Controllers\Api;
 
-use App\Core\Application;
-use App\Core\Controller;
-use App\Core\QueryBuilder;
+use Spartan\Application;
+use Spartan\Controller;
+use Spartan\QueryBuilder;
 
 /**
  * Stateless REST API controller — demonstrates JSON responses and QueryBuilder pagination.

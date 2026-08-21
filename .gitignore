@@ -35,3 +35,12 @@ Thumbs.db
 # TurboQuantex
 .TurboQuantex/
 codebase_index.tq
+/vendor/
+/.phpunit.cache/
+
+# Composer installs (examples resolve the framework through a path repository)
+examples/*/vendor/
+examples/*/storage/views/*
+!examples/*/storage/views/.gitkeep
+examples/*/storage/cache/*
+!examples/*/storage/cache/.gitkeep

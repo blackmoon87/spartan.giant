@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Core\Attributes\RequirePermission;
-use App\Core\Attributes\RequireRole;
-use App\Core\Controller;
-use App\Core\Application;
-use App\Core\QueryBuilder;
+use Spartan\Attributes\RequirePermission;
+use Spartan\Attributes\RequireRole;
+use Spartan\Controller;
+use Spartan\Application;
+use Spartan\QueryBuilder;
 
 /**
  * Admin-only controller — demonstrates #[RequireRole] and #[RequirePermission] attributes.

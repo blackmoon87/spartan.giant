@@ -8,42 +8,47 @@ declare(strict_types=1);
 
 // 1. PSR-4 Autoloader
 spl_autoload_register(function (string $class): void {
-    $prefix  = 'App\\';
-    $baseDir = dirname(__DIR__) . '/src/';
-    $len     = strlen($prefix);
-    if (strncmp($prefix, $class, $len) !== 0) {
-        return;
-    }
-    $file = $baseDir . str_replace('\\', '/', substr($class, $len)) . '.php';
-    if (file_exists($file)) {
-        require_once $file;
+    $prefixes = [
+        'Spartan\\' => dirname(__DIR__) . '/framework/src/',
+        'App\\'     => dirname(__DIR__) . '/src/',
+    ];
+    foreach ($prefixes as $prefix => $baseDir) {
+        $len = strlen($prefix);
+        if (strncmp($prefix, $class, $len) !== 0) {
+            continue;
+        }
+        $file = $baseDir . str_replace('\\', '/', substr($class, $len)) . '.php';
+        if (file_exists($file)) {
+            require_once $file;
+            return;
+        }
     }
 });
 
-use App\Core\Application;
-use App\Core\Auth;
-use App\Core\AuthInterface;
-use App\Core\Cache;
-use App\Core\Container;
-use App\Core\Controller;
-use App\Core\Database;
-use App\Core\Database\Migrator;
-use App\Core\Database\MysqlDialect;
-use App\Core\Database\SqliteDialect;
-use App\Core\EventDispatcher;
-use App\Core\FormRequest;
-use App\Core\Gate;
-use App\Core\JobQueue;
-use App\Core\Logger;
-use App\Core\Model;
-use App\Core\RelationQuery;
-use App\Core\Request;
-use App\Core\Response;
-use App\Core\Router;
-use App\Core\Session;
-use App\Core\SessionInterface;
-use App\Core\Validator;
-use App\Core\View;
+use Spartan\Application;
+use Spartan\Auth;
+use Spartan\AuthInterface;
+use Spartan\Cache;
+use Spartan\Container;
+use Spartan\Controller;
+use Spartan\Database;
+use Spartan\Database\Migrator;
+use Spartan\Database\MysqlDialect;
+use Spartan\Database\SqliteDialect;
+use Spartan\EventDispatcher;
+use Spartan\FormRequest;
+use Spartan\Gate;
+use Spartan\JobQueue;
+use Spartan\Logger;
+use Spartan\Model;
+use Spartan\RelationQuery;
+use Spartan\Request;
+use Spartan\Response;
+use Spartan\Router;
+use Spartan\Session;
+use Spartan\SessionInterface;
+use Spartan\Validator;
+use Spartan\View;
 
 echo "======================================================\n";
 echo "   SPARTAN FRAMEWORK GENERAL KERNEL TEST SUITE       \n";
@@ -119,7 +124,7 @@ try {
     assertKernel("5. SQL Dialect Identifier Escaping", $mysqlDialect->quoteIdentifier('name') === '`name`' && $sqliteDialect->quoteIdentifier('name') === '"name"', "Compiled MySQL backticks vs SQLite double quotes");
 
     // 5. QueryBuilder Parameterization & Select
-    $builder = new \App\Core\QueryBuilder($app->db, 'test_books');
+    $builder = new \Spartan\QueryBuilder($app->db, 'test_books');
     $bookRows = $builder->where('pages', 400, '>')->orderBy('title', 'ASC')->get();
     assertKernel("6. QueryBuilder Parameterization", count($bookRows) === 2, "Fetched " . count($bookRows) . " books matching pages > 400");
 
@@ -274,33 +279,33 @@ try {
     // 23. SQL operator whitelist
     $operatorRejected = false;
     try {
-        (new \App\Core\QueryBuilder($app->db, 'test_books'))->where('id', 1, '= 1 OR 1=1 --');
+        (new \Spartan\QueryBuilder($app->db, 'test_books'))->where('id', 1, '= 1 OR 1=1 --');
     } catch (\Throwable $e) {
         $operatorRejected = true;
     }
-    $operatorAccepted = count((new \App\Core\QueryBuilder($app->db, 'test_books'))->where('title', '%Pride%', 'LIKE')->get()) === 1;
+    $operatorAccepted = count((new \Spartan\QueryBuilder($app->db, 'test_books'))->where('title', '%Pride%', 'LIKE')->get()) === 1;
     assertKernel("23. QueryBuilder Operator Whitelist", $operatorRejected && $operatorAccepted, "Rejected injected operator, still accepts LIKE");
 
     // 24. Column expression whitelist
     $columnRejected = false;
     try {
-        (new \App\Core\QueryBuilder($app->db, 'test_books'))->select('id) FROM test_authors WHERE 1=1 --')->get();
+        (new \Spartan\QueryBuilder($app->db, 'test_books'))->select('id) FROM test_authors WHERE 1=1 --')->get();
     } catch (\Throwable $e) {
         $columnRejected = true;
     }
-    $bookTotal   = count((new \App\Core\QueryBuilder($app->db, 'test_books'))->get());
-    $aggregateOk = (new \App\Core\QueryBuilder($app->db, 'test_books'))
+    $bookTotal   = count((new \Spartan\QueryBuilder($app->db, 'test_books'))->get());
+    $aggregateOk = (new \Spartan\QueryBuilder($app->db, 'test_books'))
         ->select('COUNT(id) as total')->first()['total'] ?? null;
     assertKernel("24. QueryBuilder Identifier Whitelist", $columnRejected && (int) $aggregateOk === $bookTotal, "Blocked injected column, kept COUNT(id) as total working");
 
     // 25. count() honours joins and groupBy
-    $joinedCount = (new \App\Core\QueryBuilder($app->db, 'test_books'))
+    $joinedCount = (new \Spartan\QueryBuilder($app->db, 'test_books'))
         ->join('test_authors', 'test_authors.id', 'test_books.author_id')
         ->where('test_authors.id', 1)
         ->count();
-    $groupedCount = (new \App\Core\QueryBuilder($app->db, 'test_books'))->groupBy('author_id')->count();
-    $expectedJoined = count((new \App\Core\QueryBuilder($app->db, 'test_books'))->where('author_id', 1)->get());
-    $expectedGroups = count((new \App\Core\QueryBuilder($app->db, 'test_books'))->select('author_id')->groupBy('author_id')->get());
+    $groupedCount = (new \Spartan\QueryBuilder($app->db, 'test_books'))->groupBy('author_id')->count();
+    $expectedJoined = count((new \Spartan\QueryBuilder($app->db, 'test_books'))->where('author_id', 1)->get());
+    $expectedGroups = count((new \Spartan\QueryBuilder($app->db, 'test_books'))->select('author_id')->groupBy('author_id')->get());
     assertKernel("25. QueryBuilder count() With Joins & Groups", $joinedCount === $expectedJoined && $groupedCount === $expectedGroups, "Counted {$joinedCount} joined rows (expected {$expectedJoined}) and {$groupedCount} group(s)");
 
     // 26. Client IP spoofing is ignored unless the peer is a trusted proxy
@@ -352,7 +357,7 @@ try {
     assertKernel("31. Stale Job Reclamation", $reclaimed >= 1, "Reclaimed {$reclaimed} job(s) abandoned by a dead worker");
 
     // 32. Global middleware runs even when no route matches (404)
-    class KernelProbeMiddleware extends \App\Core\Middleware {
+    class KernelProbeMiddleware extends \Spartan\Middleware {
         public static bool $ran = false;
         public function execute(Request $request, Response $response): void { self::$ran = true; }
     }

@@ -32,15 +32,15 @@ public/index.php           ← front controller only (loads routes, runs app)
 routes/web.php             ← public pages
 routes/admin.php           ← protected pages
 routes/api.php             ← JSON endpoints
-src/Controllers/           ← extend App\Core\Controller
-src/Models/                ← extend App\Core\Model
+src/Controllers/           ← extend Spartan\Controller
+src/Models/                ← extend Spartan\Model
 src/Views/                 ← .blade.php (preferred) or .php (fallback)
 src/Views/layouts/         ← layout wrappers
-src/Middlewares/           ← extend App\Core\Middleware
+src/Middlewares/           ← extend Spartan\Middleware
 src/Services/              ← business logic, no extends required
 src/Listeners/             ← must implement handle(mixed $payload): void
 src/Events/                ← event name constants
-src/Core/                  ← framework internals (do not modify unless requested)
+framework/src/             ← the spartan/framework package (namespace Spartan\, do not modify unless requested)
 database/migrations/       ← sequenced .sql files
 storage/logs/              ← daily log files (auto-created)
 storage/cache/             ← file cache (auto-created)
@@ -202,7 +202,7 @@ When a controller action has complex validation, extract it into a `FormRequest`
 
 ```php
 namespace App\Controllers\Requests;
-use App\Core\FormRequest;
+use Spartan\FormRequest;
 
 class StorePostRequest extends FormRequest {
     public function authorize(): bool {
@@ -264,7 +264,7 @@ $app->router->excludeCsrf('/api/webhook', '/api/v1/*');
 ## Middlewares
 
 ```php
-// Create in src/Middlewares/, extend App\Core\Middleware
+// Create in src/Middlewares/, extend Spartan\Middleware
 class MyMiddleware extends Middleware {
     public function execute(Request $request, Response $response): void { ... }
 }

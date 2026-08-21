@@ -52,8 +52,8 @@ if (file_exists($autoloadPath)) {
     });
 }
 
-use App\Core\Application;
-use App\Core\JobQueue;
+use Spartan\Application;
+use Spartan\JobQueue;
 
 $config = require __DIR__ . '/config/config.php';
 $app    = new Application($config);

@@ -4,30 +4,34 @@ declare(strict_types=1);
 
 namespace App\Tests;
 
-use App\Core\Application;
-use App\Core\Container;
-use App\Core\Router;
-use App\Core\Request;
-use App\Core\Response;
-use App\Core\QueryBuilder;
-use App\Core\View;
-use App\Core\Cache;
-use App\Core\Database;
+use Spartan\Application;
+use Spartan\Container;
+use Spartan\Router;
+use Spartan\Request;
+use Spartan\Response;
+use Spartan\QueryBuilder;
+use Spartan\View;
+use Spartan\Cache;
+use Spartan\Database;
 use PDO;
 
-require_once __DIR__ . '/../src/Core/helpers.php';
+require_once __DIR__ . '/../framework/src/helpers.php';
 
 spl_autoload_register(function (string $class): void {
-    $prefix = 'App\\Core\\';
-    $baseDir = __DIR__ . '/../src/Core/';
-    $len = strlen($prefix);
-    if (strncmp($prefix, $class, $len) !== 0) {
-        return;
-    }
-    $relativeClass = substr($class, $len);
-    $file = $baseDir . str_replace('\\', '/', $relativeClass) . '.php';
-    if (file_exists($file)) {
-        require_once $file;
+    $prefixes = [
+        'Spartan\\' => dirname(__DIR__) . '/framework/src/',
+        'App\\'     => dirname(__DIR__) . '/src/',
+    ];
+    foreach ($prefixes as $prefix => $baseDir) {
+        $len = strlen($prefix);
+        if (strncmp($prefix, $class, $len) !== 0) {
+            continue;
+        }
+        $file = $baseDir . str_replace('\\', '/', substr($class, $len)) . '.php';
+        if (file_exists($file)) {
+            require_once $file;
+            return;
+        }
     }
 });
 

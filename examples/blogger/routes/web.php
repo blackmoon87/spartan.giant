@@ -8,7 +8,7 @@ use App\Controllers\BlogController;
 use App\Controllers\CommentController;
 use App\Controllers\LikeController;
 use App\Controllers\NewsletterController;
-use App\Core\Application;
+use Spartan\Application;
 use App\Listeners\NotifySubscribersListener;
 use App\Listeners\PingSearchEnginesListener;
 use App\Listeners\UpdatePostMetricsListener;

@@ -7,7 +7,7 @@ use App\Controllers\DashboardController;
 use App\Controllers\ProjectController;
 use App\Controllers\TaskController;
 use App\Controllers\AdminController;
-use App\Core\Application;
+use Spartan\Application;
 use App\Listeners\LogActivityListener;
 use App\Listeners\NotifyAssigneeListener;
 

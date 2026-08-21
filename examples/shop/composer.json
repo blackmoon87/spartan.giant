@@ -1,13 +1,26 @@
 {
-    "name": "spartan/framework",
-    "description": "Spartan — Lightweight PHP 8.1+ MVC Framework. Zero dependencies, full control, production-ready security.",
+    "name": "spartan/example-shop",
+    "description": "Spartan example — storefront with cart and checkout.",
     "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.1",
+        "spartan/framework": "@dev"
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../../",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
     "autoload": {
         "psr-4": {
             "App\\": "src/"
         }
     },
-    "require": {
-        "php": ">=8.1"
-    }
+    "minimum-stability": "dev",
+    "prefer-stable": true
 }

@@ -28,30 +28,44 @@ $autoloadPath = dirname(__DIR__) . '/vendor/autoload.php';
 if (file_exists($autoloadPath)) {
     require_once $autoloadPath;
 } else {
-    spl_autoload_register(function (string $class): void {
-        $prefix = 'App\\';
-        $baseDir = dirname(__DIR__) . '/src/';
-        $len = strlen($prefix);
-        if (strncmp($prefix, $class, $len) !== 0) return;
-        $relativeClass = substr($class, $len);
-        $file = $baseDir . str_replace('\\', '/', $relativeClass) . '.php';
-        if (file_exists($file)) require_once $file;
+    // Fallback PSR-4 autoloader so the example runs before `composer install`.
+    // In a real project `composer require spartan/framework` provides both.
+    $prefixes = [
+        'Spartan\\' => dirname(__DIR__, 3) . '/framework/src/',
+        'App\\'     => dirname(__DIR__) . '/src/',
+    ];
+
+    spl_autoload_register(function (string $class) use ($prefixes): void {
+        foreach ($prefixes as $prefix => $baseDir) {
+            $len = strlen($prefix);
+            if (strncmp($prefix, $class, $len) !== 0) {
+                continue;
+            }
+            $file = $baseDir . str_replace('\\', '/', substr($class, $len)) . '.php';
+            if (file_exists($file)) {
+                require_once $file;
+                return;
+            }
+        }
     });
+
+    require_once dirname(__DIR__, 3) . '/framework/src/helpers.php';
 }
 
-use App\Core\Application;
+use Spartan\Application;
 
 // Load config
 $config = require_once dirname(__DIR__) . '/config/config.php';
+$config['base_path'] ??= dirname(__DIR__);
 
 // Boot Application
 $app = new Application($config);
 
 // ─── Register Middleware ──────────────────────────────────────────────────────
-$app->router->aliasMiddleware('auth', \App\Middlewares\AuthMiddleware::class);
-$app->router->aliasMiddleware('csrf', \App\Middlewares\CsrfMiddleware::class);
+$app->router->aliasMiddleware('auth', \Spartan\Middlewares\AuthMiddleware::class);
+$app->router->aliasMiddleware('csrf', \Spartan\Middlewares\CsrfMiddleware::class);
 $app->router->setGlobalMiddlewares([
-    \App\Middlewares\CsrfMiddleware::class,
+    \Spartan\Middlewares\CsrfMiddleware::class,
 ]);
 
 // Share global view variables
