@@ -241,6 +241,18 @@ class View implements ViewInterface
         $content = preg_replace('/@role\s*(\((?>[^()]+|(?1))*\))/', '<?php if(($__user = \Spartan\Gate::resolveUser()) && method_exists($__user, \'hasRole\') && $__user->hasRole$1): ?>', $content);
         $content = preg_replace('/@endrole/', '<?php endif; ?>', $content);
 
+        // Translation Directives
+        // @lang('key') → HTML-escaped translated string
+        $content = preg_replace('/@lang\s*\((.+?)\)/', '<?php echo htmlspecialchars(trans($1), ENT_QUOTES, \'UTF-8\'); ?>', $content);
+
+        // Form Helper Directives
+        // @selected($condition) → selected="selected"
+        $content = preg_replace('/@selected\s*\((.+?)\)/', '<?php if($1): ?> selected="selected"<?php endif; ?>', $content);
+        // @checked($condition) → checked="checked"
+        $content = preg_replace('/@checked\s*\((.+?)\)/', '<?php if($1): ?> checked="checked"<?php endif; ?>', $content);
+        // @disabled($condition) → disabled="disabled"
+        $content = preg_replace('/@disabled\s*\((.+?)\)/', '<?php if($1): ?> disabled="disabled"<?php endif; ?>', $content);
+
         return $content;
     }
 

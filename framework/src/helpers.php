@@ -75,3 +75,54 @@ if (!function_exists('config')) {
         return $value;
     }
 }
+
+// ─── Translation Helpers ────────────────────────────────────────────────────
+
+if (!function_exists('trans')) {
+    /**
+     * Translate a dot-notation key with optional parameter replacement.
+     *
+     * Usage:
+     *   trans('app.welcome', ['name' => 'Ahmad'])
+     *   trans('validation.required', ['field' => 'email'], 'ar')
+     *
+     * @param string      $key     Dot-notation key (e.g. 'app.notifications.title')
+     * @param array       $replace Parameters to substitute (e.g. ['name' => 'Ahmad'])
+     * @param string|null $locale  Override locale for this call only
+     * @return string
+     */
+    function trans(string $key, array $replace = [], ?string $locale = null): string
+    {
+        return \Spartan\Translation\Translator::getInstance()->get($key, $replace, $locale);
+    }
+}
+
+if (!function_exists('__')) {
+    /**
+     * Alias for trans().
+     */
+    function __(string $key, array $replace = [], ?string $locale = null): string
+    {
+        return trans($key, $replace, $locale);
+    }
+}
+
+if (!function_exists('current_locale')) {
+    /**
+     * Get the current active locale.
+     */
+    function current_locale(): string
+    {
+        return \Spartan\Translation\Translator::getInstance()->getLocale();
+    }
+}
+
+if (!function_exists('is_rtl')) {
+    /**
+     * Check if the current (or given) locale is right-to-left.
+     */
+    function is_rtl(?string $locale = null): bool
+    {
+        return \Spartan\Translation\Translator::getInstance()->isRtl($locale);
+    }
+}

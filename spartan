@@ -173,6 +173,107 @@ switch ($command) {
         echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n";
         exit($result['status'] === 'healthy' ? 0 : 1);
 
+    case 'lang:list':
+        $translator = \Spartan\Translation\Translator::getInstance();
+        $locales = $translator->availableLocales();
+        $current = $translator->getLocale();
+        $fallback = $translator->getFallback();
+        echo "Available Locales:\n";
+        foreach ($locales as $locale) {
+            $badges = [];
+            if ($locale === $current) $badges[] = 'active';
+            if ($locale === $fallback) $badges[] = 'fallback';
+            if ($translator->isRtl($locale)) $badges[] = 'RTL';
+            $badgeStr = !empty($badges) ? ' (' . implode(', ', $badges) . ')' : '';
+            echo "  • {$locale}{$badgeStr}\n";
+        }
+        break;
+
+    case 'lang:check':
+        echo "Checking translation files for missing keys...\n\n";
+        $langPath = __DIR__ . '/lang';
+        if (!is_dir($langPath)) {
+            echo "No lang/ directory found.\n";
+            exit(1);
+        }
+
+        $translator = \Spartan\Translation\Translator::getInstance();
+        $locales = $translator->availableLocales();
+        if (count($locales) < 2) {
+            echo "Need at least 2 locales to compare. Found: " . implode(', ', $locales) . "\n";
+            exit(0);
+        }
+
+        $referenceLocale = $locales[0]; // First locale alphabetically as reference
+        $allGroups = [];
+        $allKeys = []; // [group][locale] => flat keys
+
+        // Scan all groups across all locales
+        foreach ($locales as $locale) {
+            $localeDir = $langPath . '/' . $locale;
+            if (!is_dir($localeDir)) continue;
+            foreach (scandir($localeDir) as $file) {
+                if (str_ends_with($file, '.php')) {
+                    $group = basename($file, '.php');
+                    $allGroups[$group] = true;
+                }
+            }
+        }
+
+        // Flatten nested arrays to dot-notation keys
+        $flattenKeys = function(array $array, string $prefix = '') use (&$flattenKeys): array {
+            $keys = [];
+            foreach ($array as $key => $value) {
+                $fullKey = $prefix === '' ? (string) $key : $prefix . '.' . $key;
+                if (is_array($value)) {
+                    $keys = array_merge($keys, $flattenKeys($value, $fullKey));
+                } else {
+                    $keys[] = $fullKey;
+                }
+            }
+            return $keys;
+        };
+
+        // Collect all keys per group per locale
+        foreach (array_keys($allGroups) as $group) {
+            foreach ($locales as $locale) {
+                $data = $translator->getGroup($group, $locale);
+                $allKeys[$group][$locale] = $flattenKeys($data);
+            }
+        }
+
+        // Compare: find missing keys in each locale
+        $totalMissing = 0;
+        foreach (array_keys($allGroups) as $group) {
+            // Union of all keys across all locales
+            $unionKeys = [];
+            foreach ($locales as $locale) {
+                $unionKeys = array_merge($unionKeys, $allKeys[$group][$locale] ?? []);
+            }
+            $unionKeys = array_unique($unionKeys);
+            sort($unionKeys);
+
+            foreach ($locales as $locale) {
+                $localeKeys = $allKeys[$group][$locale] ?? [];
+                $missing = array_diff($unionKeys, $localeKeys);
+                if (!empty($missing)) {
+                    echo "⚠️  lang/{$locale}/{$group}.php — " . count($missing) . " missing key(s):\n";
+                    foreach ($missing as $key) {
+                        echo "    ✗ {$group}.{$key}\n";
+                        $totalMissing++;
+                    }
+                    echo "\n";
+                }
+            }
+        }
+
+        if ($totalMissing === 0) {
+            echo "✅ All locale files are in sync! No missing keys found.\n";
+        } else {
+            echo "Found {$totalMissing} missing key(s) total.\n";
+        }
+        exit($totalMissing > 0 ? 1 : 0);
+
     case 'help':
     default:
         echo "Spartan CLI Command Runner\n";
@@ -188,5 +289,7 @@ switch ($command) {
         echo "  php spartan config:cache      Cache the configuration\n";
         echo "  php spartan config:clear      Clear the configuration cache\n";
         echo "  php spartan health            Run system health check\n";
+        echo "  php spartan lang:list         List available locales\n";
+        echo "  php spartan lang:check        Check locale files for missing keys\n";
         break;
 }

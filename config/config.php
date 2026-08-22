@@ -107,4 +107,9 @@ return [
     'auth' => [
         'model' => 'App\\Models\\User',
     ],
+    'locale' => [
+        'default'  => $_ENV['APP_LOCALE'] ?? 'en',
+        'fallback' => $_ENV['APP_FALLBACK_LOCALE'] ?? 'en',
+        'rtl'      => ['ar', 'he', 'fa', 'ur'],
+    ],
 ];

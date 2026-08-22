@@ -86,6 +86,17 @@ class Application
         // Boot cache driver
         Cache::boot($config['cache'] ?? []);
 
+        // Boot Translation Engine
+        $translator = Translation\Translator::getInstance();
+        $localeConfig = $config['locale'] ?? [];
+        $defaultLocale = $localeConfig['default'] ?? 'en';
+        $translator->setLocale($this->session->get('locale', $defaultLocale));
+        $translator->setFallback($localeConfig['fallback'] ?? 'en');
+        if (!empty($localeConfig['rtl'])) {
+            $translator->setRtlLocales($localeConfig['rtl']);
+        }
+        $this->container->singleton(Translation\Translator::class, fn() => $translator);
+
         // Generate a cryptographically secure CSRF token if not already in session
         if (!$this->session->get('_csrf_token')) {
             $this->session->set('_csrf_token', bin2hex(random_bytes(32)));
@@ -182,6 +193,9 @@ class Application
         }
 
         $this->request->resetState();
+
+        // Reset translator loaded translations and re-read locale from session
+        Translation\Translator::getInstance()->resetState();
 
         // Close all database connections to prevent leaks in long-running workers
         $this->connections->disconnectAll();
