@@ -48,8 +48,8 @@ return [
     ],
 
     'pagination' => [
-        'previous' => '&laquo; السابق',
-        'next'     => 'التالي &raquo;',
+        'previous' => '« السابق',
+        'next'     => 'التالي »',
         'showing'  => 'عرض :from إلى :to من أصل :total نتيجة',
     ],
 ];

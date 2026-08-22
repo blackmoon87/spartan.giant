@@ -48,8 +48,8 @@ return [
     ],
 
     'pagination' => [
-        'previous' => '&laquo; Previous',
-        'next'     => 'Next &raquo;',
+        'previous' => '« Previous',
+        'next'     => 'Next »',
         'showing'  => 'Showing :from to :to of :total results',
     ],
 ];
