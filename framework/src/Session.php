@@ -100,12 +100,12 @@ class Session implements SessionInterface
      */
     public function removeFlashMessages(): void
     {
-        if (session_status() !== PHP_SESSION_ACTIVE) {
+        if (session_status() !== PHP_SESSION_ACTIVE && !isset($_SESSION[self::FLASH_KEY])) {
             return;
         }
         $flashMessages = $_SESSION[self::FLASH_KEY] ?? [];
         foreach ($flashMessages as $key => $flashMessage) {
-            if ($flashMessage['remove']) {
+            if (!empty($flashMessage['remove'])) {
                 unset($flashMessages[$key]);
             }
         }

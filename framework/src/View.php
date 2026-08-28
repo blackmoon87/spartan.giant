@@ -245,13 +245,13 @@ class View implements ViewInterface
         // @lang('key') → HTML-escaped translated string
         $content = preg_replace('/@lang\s*\((.+?)\)/', '<?php echo htmlspecialchars(trans($1), ENT_QUOTES, \'UTF-8\'); ?>', $content);
 
-        // Form Helper Directives
+        // Form Helper Directives with balanced parenthesis support
         // @selected($condition) → selected="selected"
-        $content = preg_replace('/@selected\s*\((.+?)\)/', '<?php if($1): ?> selected="selected"<?php endif; ?>', $content);
+        $content = preg_replace('/@selected\s*(\((?>[^()]+|(?1))*\))/', '<?php if$1: ?> selected="selected"<?php endif; ?>', $content);
         // @checked($condition) → checked="checked"
-        $content = preg_replace('/@checked\s*\((.+?)\)/', '<?php if($1): ?> checked="checked"<?php endif; ?>', $content);
+        $content = preg_replace('/@checked\s*(\((?>[^()]+|(?1))*\))/', '<?php if$1: ?> checked="checked"<?php endif; ?>', $content);
         // @disabled($condition) → disabled="disabled"
-        $content = preg_replace('/@disabled\s*\((.+?)\)/', '<?php if($1): ?> disabled="disabled"<?php endif; ?>', $content);
+        $content = preg_replace('/@disabled\s*(\((?>[^()]+|(?1))*\))/', '<?php if$1: ?> disabled="disabled"<?php endif; ?>', $content);
 
         return $content;
     }
