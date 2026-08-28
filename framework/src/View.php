@@ -253,6 +253,9 @@ class View implements ViewInterface
         // @disabled($condition) → disabled="disabled"
         $content = preg_replace('/@disabled\s*(\((?>[^()]+|(?1))*\))/', '<?php if$1: ?> disabled="disabled"<?php endif; ?>', $content);
 
+        // Raw PHP block directive: @php ... @endphp
+        $content = preg_replace('/@php(.*?)@endphp/s', '<?php $1 ?>', $content);
+
         return $content;
     }
 
