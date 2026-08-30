@@ -44,6 +44,7 @@
         "test:kernel": "php tests/run_tests.php",
         "analyse": "phpstan analyse --memory-limit=512M",
         "bench": "php tests/stress_test.php",
+        "bench:db": "php tests/benchmark_1m_db.php",
         "check": [
             "@analyse",
             "@test"
