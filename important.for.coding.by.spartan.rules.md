@@ -881,9 +881,52 @@ Output includes:
 - [x] External URLs are redirected strictly through `$this->redirect()` with open-redirect guards.
 
 [styling] 
-# Glass-Over-Scene UI Style
+# CSS Styling Governance & Precedence Order of Flow
 
-Apply this style to any HTML/CSS the user asks for. It is a frosted-panel system layered over a full-bleed painted background scene.
+> **CRITICAL DEVELOPER OVERRIDE LAW**:  
+> When developing a site, if the developer or user provides custom styling instructions, design tokens, external CSS files, custom branding, or specific page designs, **IGNORE the default Spartan Glass/Theme styling** and strictly follow the **Precedence Order of Flow** below.
+
+---
+
+## 1. CSS Precedence Order of Flow (Priority Hierarchy)
+
+When constructing, styling, or modifying views in Spartan, resolve styles in this exact order (Highest Priority &rarr; Lowest Priority):
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 1. DEVELOPER / USER EXPLICIT STYLES (HIGHEST PRIORITY)                  │
+│    Custom themes, brand guidelines, custom CSS files, UI requirements   │
+│    → COMPLETELY OVERRIDES ALL DEFAULT SPARTAN STYLING                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│ 2. WIREFRAME & STRUCTURAL SKELETON (htmlCreator / CSS Grid / Flexbox)   │
+│    Layout structure exported from pure-responsive-div-builder           │
+│    (public/css/pages/*.css)                                             │
+├─────────────────────────────────────────────────────────────────────────┤
+│ 3. ZERO-DEFORMATION SAFETY LAYER (Section 12.4)                         │
+│    box-sizing: border-box, min-width: 0, overflow-x: hidden, clamp()    │
+│    → ALWAYS APPLIED to guarantee 320px–4K layout stability without burst│
+├─────────────────────────────────────────────────────────────────────────┤
+│ 4. GLASS-OVER-SCENE SYSTEM (OPTIONAL PRESET)                            │
+│    Applied ONLY when the frosted glass theme or color palette is chosen │
+├─────────────────────────────────────────────────────────────────────────┤
+│ 5. DEFAULT SPARTAN BASE FALLBACK (LOWEST PRIORITY)                      │
+│    Clean minimal foundation applied only if zero styles are specified   │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Flow Execution Rules for Developers & AI Agents:
+1. **Developer Explicit Intent Always Wins**: If custom colors, stylesheets, or layouts are provided, bypass all default framework styling presets and apply the developer's styling directly.
+2. **Modular File Flow Structure**:
+   - `public/css/reset.css` &rarr; Section 12.4 anti-burst foundation and document reset.
+   - `public/css/app.css` &rarr; Global design tokens, typography, navigation, and common components.
+   - `public/css/pages/{module}.css` &rarr; Module-specific page grids, tables, and views.
+3. **Non-Negotiable Safety**: Whatever visual styling the developer chooses, the structural reset (`min-width: 0`, `overflow-wrap: break-word`, `overflow-x: hidden`) must remain active so views never horizontally deform or burst on mobile devices.
+
+---
+
+# Glass-Over-Scene UI Style (Optional Preset)
+
+Apply this style only when the user or project requests the frosted glass theme. It is a frosted-panel system layered over a full-bleed painted background scene.
 
 ---
 
