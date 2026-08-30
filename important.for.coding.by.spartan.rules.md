@@ -588,7 +588,9 @@ In your View (`src/Views/products/partials/search_results.blade.php`):
 ### 12.3 Official UI Layout & Wireframing Recommendation: `pure-responsive-div-builder`
 
 > **ZERO BLOAT • ZERO DIV BURSTING • 100% CONTENT-AGNOSTIC WIREFRAMING**  
-> Source: [`github.com/blackmoon87/pure-responsive-div-builder`](https://github.com/blackmoon87/pure-responsive-div-builder) (Local workspace: `htmlCreator/`)
+> - **GitHub Repository**: [`github.com/blackmoon87/pure-responsive-div-builder`](https://github.com/blackmoon87/pure-responsive-div-builder)  
+> - **Live Web Builder**: [`blackmoon87.github.io/pure-responsive-div-builder`](https://blackmoon87.github.io/pure-responsive-div-builder/)  
+> - **Local Workspace**: `htmlCreator/`
 
 When designing responsive layouts, backoffice dashboards, or view skeletons for Spartan Blade, **do not rely on heavy Figma-to-HTML converters**. Instead, use **`pure-responsive-div-builder` (`htmlCreator`)**.
 
