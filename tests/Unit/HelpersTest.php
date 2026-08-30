@@ -24,4 +24,9 @@ final class HelpersTest extends TestCase
     {
         $this->assertInstanceOf(AuthInterface::class, auth());
     }
+
+    public function test_old_helper_returns_default_or_value(): void
+    {
+        $this->assertSame('default_val', old('non_existent', 'default_val'));
+    }
 }

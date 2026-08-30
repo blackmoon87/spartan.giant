@@ -199,6 +199,9 @@ class View implements ViewInterface
      */
     protected function compileString(string $content): string
     {
+        // Strip Blade comments: {{-- comment --}} before processing variable interpolations
+        $content = preg_replace('/\{\{--.*?--\}\}/s', '', $content);
+
         $content = preg_replace('/\{\{\s*(.+?)\s*\}\}/s', '<?php echo htmlspecialchars(($1) ?? \'\', ENT_QUOTES, \'UTF-8\'); ?>', $content);
         $content = preg_replace('/\{!!\s*(.+?)\s*!!\}/s', '<?php echo $1; ?>', $content);
         $content = preg_replace('/@extends\s*\((.*?)\)/', '<?php $this->extend($1); ?>', $content);
@@ -210,6 +213,7 @@ class View implements ViewInterface
         $content = preg_replace('/@yield\s*\((.*?)\)/', '<?php echo $this->yieldContent($1); ?>', $content);
         $content = preg_replace('/@include\s*\((.*?)\)/', '<?php echo $this->include($1, get_defined_vars()); ?>', $content);
         $content = preg_replace('/@csrf/', '<?php echo $this->csrfToken(); ?>', $content);
+        $content = preg_replace('/@method\s*\(\s*[\'"]([A-Za-z]+)[\'"]\s*\)/', '<input type="hidden" name="_method" value="$1">', $content);
         
         $content = preg_replace('/@flash\s*\((.*?)\)/', '<?php if($flashMsg = $this->flash($1)): ?>', $content);
         $content = preg_replace('/@endflash/', '<?php endif; ?>', $content);
@@ -231,6 +235,12 @@ class View implements ViewInterface
 
         $content = preg_replace('/@empty\s*(\((?>[^()]+|(?1))*\))/', '<?php if(empty$1): ?>', $content);
         $content = preg_replace('/@endempty/', '<?php endif; ?>', $content);
+
+        // Authentication Directives (@auth, @guest)
+        $content = preg_replace('/@auth/', '<?php if(\Spartan\Gate::resolveUser() !== null): ?>', $content);
+        $content = preg_replace('/@endauth/', '<?php endif; ?>', $content);
+        $content = preg_replace('/@guest/', '<?php if(\Spartan\Gate::resolveUser() === null): ?>', $content);
+        $content = preg_replace('/@endguest/', '<?php endif; ?>', $content);
 
         // Custom Authorization Directives (order matters: @cannot before @can to prevent partial match)
         $content = preg_replace('/@cannot\s*(\((?>[^()]+|(?1))*\))/', '<?php if(\Spartan\Gate::denies$1): ?>', $content);

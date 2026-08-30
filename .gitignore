@@ -44,3 +44,7 @@ examples/*/storage/views/*
 !examples/*/storage/views/.gitkeep
 examples/*/storage/cache/*
 !examples/*/storage/cache/.gitkeep
+
+# Sub-projects
+/htmlCreator/
+

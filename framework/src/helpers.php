@@ -126,3 +126,30 @@ if (!function_exists('is_rtl')) {
         return \Spartan\Translation\Translator::getInstance()->isRtl($locale);
     }
 }
+
+if (!function_exists('old')) {
+    /**
+     * Retrieve an old input item from session flash or current request.
+     */
+    function old(string $key, mixed $default = null): mixed
+    {
+        if (!isset(\Spartan\Application::$app)) {
+            return $default;
+        }
+
+        $session = \Spartan\Application::$app->session;
+        $oldInputs = $session->get('_old_input') ?? $session->getFlash('_old_input');
+        if (is_array($oldInputs) && array_key_exists($key, $oldInputs)) {
+            return $oldInputs[$key];
+        }
+
+        $request = \Spartan\Application::$app->request;
+        $body = $request->getBody();
+        if (array_key_exists($key, $body)) {
+            return $body[$key];
+        }
+
+        return $default;
+    }
+}
+

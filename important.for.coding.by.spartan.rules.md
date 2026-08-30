@@ -49,7 +49,10 @@ __('app.welcome', ['name' => 'Ahmad']);    // Alias for trans()
 current_locale();                          // Returns current active locale string (e.g. 'en', 'ar')
 is_rtl();                                  // Returns bool if active or given locale is RTL
 
-// 5. Path Resolution (Spartan\Paths)
+// 5. Form Input Repopulation
+old('email', 'default@example.com');       // Reads flashed input or request body safely
+
+// 6. Path Resolution (Spartan\Paths)
 Paths::base('src/Views');        // Absolute path relative to project root
 Paths::storage('logs');          // Absolute path to storage directory
 ```
@@ -406,12 +409,14 @@ Spartan includes its own native, zero-dependency Blade compiler in `Spartan\View
 |---|---|---|
 | `{{ $var }}` | `<?= htmlspecialchars($var, ENT_QUOTES, 'UTF-8') ?>` | Safely escapes variables (XSS-proof). |
 | `{!! $raw !!}` | `<?= $raw ?>` | Renders raw, unescaped HTML content. |
+| `{{-- comment --}}` | ` ` (stripped during compilation) | Blade comments (never rendered in HTML). |
 | `@extends('layouts.name')` | `$this->extend('layouts.name')` | Declares the master layout template. |
 | `@section('name') ... @endsection` | `$this->startSection('name') ...` | Defines a named content section block. |
 | `@section('name', expression)` | `$this->sections['name'] = expression;` | Inline short section assignment. |
 | `@yield('name', 'Default')` | `echo $this->yieldContent('name')` | Yields content slot inside a layout. |
 | `@include('partials.card', $params)` | `echo $this->include('partials.card', ...)` | Includes a sub-template with local variables. |
 | `@csrf` | `<input type="hidden" name="_csrf" value="...">` | Injects the CSRF security input token. |
+| `@method('PUT')` | `<input type="hidden" name="_method" value="PUT">` | Form HTTP method spoofing helper. |
 | `@flash('key') ... @endflash` | `if($flashMsg = $this->flash('key')):` | Renders temporary session flash alert. |
 | `@if(...) ... @elseif(...) ... @else ... @endif` | `if(...): ... elseif(...): ... else: ... endif;` | Conditional logic statements. |
 | `@empty($arr) ... @endempty` | `if(empty($arr)): ... endif;` | Executes when a variable is empty. |
@@ -421,6 +426,8 @@ Spartan includes its own native, zero-dependency Blade compiler in `Spartan\View
 | `@selected($condition)` | `selected="selected"` | Form `<option>` selected attribute helper. |
 | `@checked($condition)` | `checked="checked"` | Form `<input checkbox>` checked helper. |
 | `@disabled($condition)` | `disabled="disabled"` | Form input disabled attribute helper. |
+| `@auth ... @endauth` | `if(\Spartan\Gate::resolveUser() !== null):` | Renders block only for authenticated users. |
+| `@guest ... @endguest` | `if(\Spartan\Gate::resolveUser() === null):` | Renders block only for guest visitors. |
 | `@can('ability', $model) ... @endcan` | `if(\Spartan\Gate::check(...)):` | Evaluates Gate authorization policies. |
 | `@cannot('ability', $model) ... @endcannot` | `if(\Spartan\Gate::denies(...)):` | Evaluates Gate authorization denial. |
 | `@role('admin') ... @endrole` | `if($user->hasRole('admin')):` | Direct RBAC role checks in views. |
@@ -578,6 +585,147 @@ In your View (`src/Views/products/partials/search_results.blade.php`):
 
 ---
 
+### 12.3 Official UI Layout & Wireframing Recommendation: `pure-responsive-div-builder`
+
+> **ZERO BLOAT • ZERO DIV BURSTING • 100% CONTENT-AGNOSTIC WIREFRAMING**  
+> Source: [`github.com/blackmoon87/pure-responsive-div-builder`](https://github.com/blackmoon87/pure-responsive-div-builder) (Local workspace: `htmlCreator/`)
+
+When designing responsive layouts, backoffice dashboards, or view skeletons for Spartan Blade, **do not rely on heavy Figma-to-HTML converters**. Instead, use **`pure-responsive-div-builder` (`htmlCreator`)**.
+
+#### Why `pure-responsive-div-builder` is the Spartan Standard
+1. **100% Pure Architecture**: Generates clean, predictable CSS Grid and Flexbox structures without injecting inline garbage or framework bloat.
+2. **Stress-Tested Responsiveness**: Emits triple-breakpoint CSS (Desktop, Tablet ≤992px, Mobile ≤576px) with automatic `min-width: 0`, neutral media-query diffing, and anti-burst reset rules.
+3. **Native RTL Support**: Built-in `dir="rtl"` and logical flow for Arabic and Hebrew views.
+4. **AI-Agent & MCP Native**: Includes a 21-tool Model Context Protocol (MCP) server under `htmlCreator/mcp-server/` so AI coding agents can construct, inspect, and export page skeletons programmatically.
+
+#### The 3-Step UI Development Workflow
+
+```
+[ Step 1: Wireframe ]   → Build structural skeleton via htmlCreator UI or MCP tool (build_tree / export_full)
+           ↓
+[ Step 2: Export CSS ]  → Place generated CSS into public/css/pages/{module}.css
+           ↓
+[ Step 3: Inject Blade] → Drop HTML into src/Views/{module}/index.blade.php & add @extends, @csrf, @foreach, old()
+```
+
+#### Practical Example: From `htmlCreator` Skeleton to Spartan Blade
+
+**1. Generated CSS (`public/css/dashboard.css`):**
+```css
+.dash-root { display: flex; flex-direction: column; min-height: 100vh; }
+.dash-body { display: grid; grid-template-columns: 260px 1fr; gap: 20px; padding: 20px; }
+.dash-content { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.metric-card { background: #1d2737; border-radius: 8px; padding: 16px; min-width: 0; }
+
+@media (max-width: 992px) {
+  .dash-body { grid-template-columns: 1fr; }
+  .dash-content { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 576px) {
+  .dash-content { grid-template-columns: 1fr; }
+}
+```
+
+**2. Assembled Spartan Blade View (`src/Views/dashboard/index.blade.php`):**
+```blade
+@extends('layouts.main')
+
+@section('title', 'Admin Dashboard')
+
+@section('content')
+<div class="dash-root">
+    <div class="dash-body">
+        <div class="dash-sidebar">
+            @include('admin.partials.sidebar')
+        </div>
+
+        <div class="dash-content">
+            @foreach($metrics as $metric)
+                <div class="metric-card">
+                    <h4>{{ $metric->title }}</h4>
+                    <p class="stat-number">{{ number_format($metric->value) }}</p>
+                </div>
+            @endforeach
+        </div>
+    </div>
+</div>
+@endsection
+```
+
+---
+
+### 12.4 Zero-Deformation Responsive Law (Guaranteed Layout Integrity)
+
+> **ZERO VIEW DEFORMATION • ZERO HORIZONTAL SCROLL • NATIVE 320px–4K STABILITY**  
+> Every layout rendered in Spartan must follow these 5 mathematical anti-deformation rules to guarantee visual perfection across mobile, tablet, and desktop without layout breaks.
+
+#### 1. The Anti-Burst Foundation (Mandatory Reset)
+Never allow images, flex children, code snippets, or tables to widen the viewport or burst their containers:
+
+```css
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden; /* Guaranteed no horizontal scroll */
+}
+
+/* Prevents Flex and Grid children from blowing out containers on long strings/URLs */
+.grid > *, .flex > *, [class*="col-"] {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+/* Fluid media rule */
+img, video, canvas, svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+```
+
+#### 2. The Bulletproof Auto-Grid (Zero Media Queries)
+Uses `min(100%, min-size)` so columns automatically scale down on tiny 320px phones without bursting:
+
+```css
+.auto-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--min-col, 280px)), 1fr));
+  gap: var(--gap, 1.5rem);
+}
+```
+
+#### 3. Container Queries for Context-Aware Components (`@container`)
+Components adapt to their parent container rather than the screen viewport. This ensures cards look perfect whether inside a narrow 300px sidebar or a 1200px main area:
+
+```css
+.component-container {
+  container-type: inline-size;
+}
+
+@container (max-width: 480px) {
+  .responsive-card {
+    flex-direction: column;
+    padding: 12px;
+  }
+}
+```
+
+#### 4. Fluid Typography & Spacing (No Jarring Breakpoint Jumps)
+```css
+:root {
+  --font-base: clamp(0.9375rem, 0.88rem + 0.3vw, 1.0625rem); /* 15px -> 17px */
+  --font-h1: clamp(1.75rem, 1.3rem + 2vw, 2.75rem);          /* 28px -> 44px */
+  --font-h2: clamp(1.35rem, 1.1rem + 1.2vw, 2rem);           /* 21px -> 32px */
+  --pad-page: clamp(1rem, 0.75rem + 1.2vw, 2.5rem);
+}
+```
+
+---
+
 ## 13. Routing & Middlewares (`Spartan\Router`, `Spartan\Middleware`)
 
 ```php
@@ -683,7 +831,7 @@ $this->event('order.created', ['order_id' => 101]);
 
 ---
 
-## 17. The Complete 13 Spartan CLI Commands (`./spartan`)
+## 17. The Complete 15 Spartan CLI Commands (`./spartan`)
 
 | CLI Command | Purpose |
 |---|---|
@@ -698,6 +846,8 @@ $this->event('order.created', ['order_id' => 101]);
 | `php spartan health` | Run full system health diagnostic (PHP, DB, Memory, Permissions, OPcache). |
 | `php spartan config:cache` | Compile and cache `.env` & config array to `storage/cache/config.php`. |
 | `php spartan config:clear` | Delete cached configuration. |
+| `php spartan view:clear` | Clear the compiled Blade view cache in `storage/views/`. |
+| `php spartan route:list` | Print a formatted table of all registered routes and middleware. |
 | `php spartan lang:list` | List all available locales and active fallback/RTL badges. |
 | `php spartan lang:check` | Compare all language files and report missing translation keys. |
 
@@ -729,3 +879,214 @@ Output includes:
 - [x] Eager loading is used on all collections to eliminate $N+1$ query loops.
 - [x] Sensitive actions call `$this->session->regenerate()` upon login and role elevation.
 - [x] External URLs are redirected strictly through `$this->redirect()` with open-redirect guards.
+
+[styling] 
+# Glass-Over-Scene UI Style
+
+Apply this style to any HTML/CSS the user asks for. It is a frosted-panel system layered over a full-bleed painted background scene.
+
+---
+
+## Interaction protocol
+
+Ask the user exactly **one** question before writing code:
+
+> Which color pattern? sky-blue / sunshine / dark-night / red-orange / meadow-green / deep-ocean
+
+Take the answer, load the matching preset from **Palettes**, write the code. Do not ask anything else. Do not ask about fonts, layout, sections, or framework unless the user's request is impossible without it.
+
+If the user names a pattern not on the list, build the preset yourself using the rules in **Building a new palette**.
+
+---
+
+## Non-negotiable rules
+
+These are corrections for failures that occur every time this style is built naively.
+
+1. **Panel tint follows the scene, never the reverse.**
+   - Light/bright scene (sky, sun, sand, snow) → panels are a **dark tint** of the scene's dominant hue at 30–40% alpha. White panels on a bright scene wash out and text becomes unreadable.
+   - Dark scene (night, deep ocean, storm) → panels are a **white tint** at 8–14% alpha.
+2. **Every panel needs two edges.** One light inner border and one dark outer hairline:
+   ```css
+   border: 1px solid var(--line);
+   box-shadow: 0 0 0 1px var(--edge-dark), 0 16px 34px var(--drop), inset 0 1px 0 rgba(255,255,255,.28);
+   ```
+   A single white border disappears wherever the scene behind it is bright. This is the most common defect.
+3. **Blur budget.** `backdrop-filter: blur(12px) saturate(1.15)`. Do not exceed 16px. Do not exceed saturate 1.25. Higher values look smeared, not frosted.
+4. **The scene needs a veil.** A full-size overlay layer at 16–34% of the scene's darkest color, sitting above the scene layers and below content. Without it, nothing is legible on the bright band.
+5. **Mobile menu is opaque.** Use `--solid` (92% alpha), never the panel token. A transparent dropdown lets the hero text bleed through it.
+6. **Text over a scene always carries a shadow:** `text-shadow: 0 1px 3px <dark tint at .55>`. Tint the shadow with the scene hue; pure black over warm scenes goes muddy.
+7. **`overflow-x: hidden` on `html, body`** and `overflow-wrap: break-word` on headings. Fluid `clamp()` headings otherwise widen the document and clip the sticky navbar off the right edge.
+8. **Stacking.** Scene is `position: fixed; z-index: 0`. Content wrappers get `position: relative; z-index: 1`. Sticky nav gets `z-index: 100`.
+9. **Inputs are not fully transparent.** Give them the dark tint at ~28% alpha. Fully transparent inputs are invisible against a busy scene.
+10. **Gradient only on the primary button.** Every other button is a flat translucent panel with the same border treatment. More than one gradient per screen kills the hierarchy.
+11. **No comments in the code.**
+
+---
+
+## Token block
+
+Emit exactly this shape in `:root`, filled from the chosen preset.
+
+```css
+:root{
+  --panel:        /* base panel fill */
+  --panel-2:      /* hover / emphasized panel, +12% alpha */
+  --solid:        /* opaque version, 92% alpha — mobile menu, dropdowns */
+  --blur:blur(12px) saturate(1.15);
+  --line:         /* inner border, white or near-white at .30–.45 */
+  --line-soft:    /* --line at ~.70 of its alpha */
+  --edge-dark:    /* outer hairline, scene's darkest hue at .28–.35 */
+  --drop:         /* drop shadow color, same hue at .28 */
+  --text:         /* near-white or near-black body text */
+  --muted:        /* --text at .82 */
+  --btn-a: --btn-b: --btn-c:  /* 3-stop gradient, light → mid → dark */
+  --r:20px; --r-sm:12px;
+  --shade:0 1px 3px /* dark tint at .55 */;
+}
+```
+
+Primary button gradient is always `linear-gradient(100deg, var(--btn-a) 0%, var(--btn-b) 55%, var(--btn-c) 100%)`.
+
+---
+
+## Palettes
+
+### sky-blue
+```css
+--panel:rgba(8,48,92,.34); --panel-2:rgba(8,48,92,.46); --solid:rgba(9,52,98,.92);
+--line:rgba(255,255,255,.42); --line-soft:rgba(255,255,255,.30);
+--edge-dark:rgba(4,32,66,.30); --drop:rgba(4,28,58,.28);
+--text:#f2f9ff; --muted:rgba(226,240,252,.82);
+--btn-a:#bfe6ff; --btn-b:#3d9be8; --btn-c:#0b4f9e;
+--shade:0 1px 3px rgba(4,28,58,.55);
+```
+Scene: vertical ramp `#083a76 → #1163a8 → #2f8bc9 → #6bb0dc → #a9cfe6`, warm sun glow top-right, blurred white cirrus band at 8–36%, hard cloud bank at 46–76%, pale cloud-sea floor from 74%.
+
+### sunshine
+```css
+--panel:rgba(102,58,10,.30); --panel-2:rgba(102,58,10,.42); --solid:rgba(92,52,8,.92);
+--line:rgba(255,248,232,.46); --line-soft:rgba(255,248,232,.32);
+--edge-dark:rgba(74,38,4,.32); --drop:rgba(74,38,4,.26);
+--text:#fffaf0; --muted:rgba(255,246,232,.84);
+--btn-a:#fff2b8; --btn-b:#ffb545; --btn-c:#d97706;
+--shade:0 1px 3px rgba(70,36,4,.5);
+```
+Scene: ramp `#ffd25e → #ffb547 → #f79a3c → #ffe6a8`, large soft sun disc at 62% width centered high, hazy bloom band, wheat-toned floor with fine streak texture.
+
+### dark-night
+```css
+--panel:rgba(255,255,255,.07); --panel-2:rgba(255,255,255,.13); --solid:rgba(14,16,32,.94);
+--line:rgba(255,255,255,.20); --line-soft:rgba(255,255,255,.13);
+--edge-dark:rgba(0,0,0,.55); --drop:rgba(0,0,0,.5);
+--text:#eef1fb; --muted:rgba(226,231,248,.72);
+--btn-a:#c7d2fe; --btn-b:#7c6cf5; --btn-c:#3b1f9e;
+--shade:0 1px 3px rgba(0,0,0,.7);
+```
+Inverted case: white-tint panels, veil at only 10–15%. Scene: ramp `#05070f → #0d1230 → #1a1f4a`, violet aurora radial upper-left, teal radial right, 1px star dots via `radial-gradient` background-size 90px, horizon glow along the bottom.
+
+### red-orange
+```css
+--panel:rgba(72,14,20,.36); --panel-2:rgba(72,14,20,.48); --solid:rgba(64,12,18,.93);
+--line:rgba(255,236,224,.42); --line-soft:rgba(255,236,224,.28);
+--edge-dark:rgba(48,6,10,.38); --drop:rgba(48,6,10,.32);
+--text:#fff4ee; --muted:rgba(255,236,226,.82);
+--btn-a:#ffd9a3; --btn-b:#f2894a; --btn-c:#9e2f36;
+--shade:0 1px 3px rgba(45,10,14,.55);
+```
+Scene: ramp `#1d1436 → #4a2154 → #8e3a5c → #cf5f4e → #f09a52 → #ffd39a`, sun disc at the horizon line, blurred haze band above it, two dune/ridge layers in plum and rust.
+
+### meadow-green
+```css
+--panel:rgba(20,52,18,.32); --panel-2:rgba(20,52,18,.44); --solid:rgba(18,48,16,.92);
+--line:rgba(255,255,255,.42); --line-soft:rgba(255,255,255,.28);
+--edge-dark:rgba(10,32,8,.32); --drop:rgba(10,32,8,.28);
+--text:#f4fff0; --muted:rgba(238,250,232,.84);
+--btn-a:#d7e79a; --btn-b:#8cbf3f; --btn-c:#3f7c14;
+--shade:0 1px 3px rgba(10,32,8,.5);
+```
+Scene: overcast sky ramp `#5f7b93 → #8ba3b4 → #c8d2cd → #e4e3cf`, blurred cloud radials, mid green hills, dark treeline blob cluster on one side, grass field with three overlapping `repeating-linear-gradient` blade layers at 83/91/97deg.
+
+### deep-ocean
+```css
+--panel:rgba(255,255,255,.09); --panel-2:rgba(255,255,255,.16); --solid:rgba(4,30,46,.94);
+--line:rgba(200,246,255,.26); --line-soft:rgba(200,246,255,.16);
+--edge-dark:rgba(0,14,24,.5); --drop:rgba(0,14,24,.45);
+--text:#eafaff; --muted:rgba(214,244,252,.76);
+--btn-a:#a5f3e0; --btn-b:#22a6b3; --btn-c:#06496b;
+--shade:0 1px 3px rgba(0,14,24,.6);
+```
+Inverted case: white-tint panels. Scene: ramp `#02121e → #063348 → #0a5570`, caustic light shafts as skewed `linear-gradient` stripes at low opacity from the top, particulate dots, darker floor.
+
+---
+
+## Building a new palette
+
+If the user names a pattern not listed:
+
+1. Pick the scene's 4–5 stop vertical ramp first. Everything else derives from it.
+2. Take the ramp's darkest stop → that hue at 32–36% alpha is `--panel`, at 92% is `--solid`, at 30% is `--edge-dark`, at 55% is the `--shade` color.
+3. If the ramp's midpoint luminance is above ~55%, use dark-tint panels. Below that, switch to white-tint panels at 7–14% and drop the veil to 10–15%.
+4. Button ramp: pull the scene's brightest warm/light accent for `--btn-a`, its saturated mid for `--btn-b`, a deep shade of the same hue for `--btn-c`. Never sample all three from the background ramp itself — the button must separate from the scene.
+5. Text is near-white for dark and mid scenes, near-black (`#12202c`) only if every scene stop is above 70% luminance, in which case flip `--line` to `rgba(0,0,0,.25)` and drop text shadows.
+
+---
+
+## Scene markup
+
+```html
+<div class="scene">
+  <div class="sky"></div>
+  <div class="glow"></div>
+  <div class="mid"></div>
+  <div class="near"></div>
+  <div class="floor"></div>
+  <div class="veil"></div>
+</div>
+```
+
+```css
+.scene{position:fixed;inset:0;z-index:0}
+.scene > div{position:absolute}
+.sky{inset:0}
+.glow{inset:0;filter:blur(8px)}
+.mid{inset:8% 0 64% 0;filter:blur(12px)}
+.near{inset:46% 0 24% 0;filter:blur(7px)}
+.floor{inset:74% 0 0 0;filter:blur(4px)}
+.veil{inset:0}
+```
+
+Build every layer from `linear-gradient` and `radial-gradient` only. No image files, no external URLs — the page must render offline. Use `filter: blur()` for depth and `mask-image: linear-gradient(180deg,transparent,#000 26%)` to fade texture layers into the ground.
+
+To swap in a real photo instead: delete `.scene`, set `body{background:url('photo.jpg') center/cover fixed}`, keep `.veil` as a `body::after`.
+
+---
+
+## Components
+
+All of these share `.panel-bg` (the token block above). Only the differences are listed.
+
+**Navbar** — sticky at `top:12px`, `z-index:100`, height 64px, `border-radius:16px`, fill one step more opaque than `--panel` (~.55). Brand left, links pushed right with `margin-left:auto`. Links are 10px-radius pills that fill with `rgba(255,255,255,.16)` on hover. Below 880px: burger button appears, links become a `position:absolute` dropdown at `top:72px` using `--solid`, toggled by a `.show` class. Burger glyph swaps ☰ / ✕. Menu closes on link click and on outside click.
+
+**Buttons** — height 54px, radius 12px, `rgba(255,255,255,.10)` fill, `--line` border. Primary adds the 3-stop gradient plus `inset 0 1px 0 rgba(255,255,255,.55)`. `.small` variant at height 40px / radius 10px. Disabled at 42% opacity. Press state is `translateY(1px)`, never a scale.
+
+**Cards** — 26px padding, hover `translateY(-4px)` + `--panel-2`. Icon tile 48px, radius 13px, `--line` border, inline SVG stroked `#fff` at 1.7 width. Chips are 999px-radius outlines at 13px.
+
+**Stats row** — one panel, `grid-template-columns: repeat(auto-fit, minmax(160px,1fr))`, cells split by `border-right: 1px solid rgba(255,255,255,.22)`, last cell has none. Below 880px the divider moves to `border-bottom`.
+
+**Price cards** — panel with `padding:0; overflow:hidden`, header strip carrying a `rgba(255,255,255,.07)` fill and a bottom border. Featured variant uses `--panel-2`, a `--btn-a`-tinted header gradient, and the primary button. List items use a CSS-drawn checkmark (`::before`, two borders, `rotate(-45deg)`), not a glyph.
+
+**Form panel** — two-column grid collapsing to one at 880px, divider column border. Inputs 52px tall, dark-tint fill, `--line` border, focus goes to `--btn-a` border plus a denser fill. Checkbox is a hidden `input` with a styled sibling `span` revealing an SVG polyline via `:checked +` and a scale transition.
+
+**Footer** — single panel, `justify-content: space-between`, muted text.
+
+---
+
+## Quality floor
+
+- Responsive to 360px with no horizontal scroll.
+- `:focus-visible` outline in `--btn-a`, 3px, offset 3px.
+- `@media (prefers-reduced-motion: reduce)` kills all transitions and smooth scroll.
+- Body text ≥ 15px, line length under 60ch, contrast checked against the *brightest* region of the scene, not the average.
+- One HTML file unless the user asks otherwise. Fonts via one Google Fonts link or system stack.
+

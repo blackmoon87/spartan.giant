@@ -41,15 +41,18 @@ $config = require __DIR__ . '/config/config.php';
 $config['base_path'] ??= __DIR__;
 $app = new Application($config);
 
-if ($app->db === null) {
-    echo "Error: No database connection. Check .env DB credentials.\n";
-    exit(1);
-}
+$ensureDb = function() use ($app): void {
+    if ($app->db === null) {
+        echo "Error: No database connection. Check .env DB credentials.\n";
+        exit(1);
+    }
+};
 
 $command = $argv[1] ?? 'help';
 
 switch ($command) {
     case 'migrate':
+        $ensureDb();
         echo "Running migrations...\n";
         $migrator = new Migrator($app->db);
         try {
@@ -62,6 +65,7 @@ switch ($command) {
         break;
 
     case 'db:seed':
+        $ensureDb();
         echo "Seeding database...\n";
         $seedFile = __DIR__ . '/database/seed.sql';
         if (file_exists($seedFile)) {
@@ -79,6 +83,7 @@ switch ($command) {
         break;
 
     case 'worker':
+        $ensureDb();
         $loopMode  = in_array('--loop', $argv ?? [], true);
         $pollSecs  = 5;
         echo "Started job queue worker" . ($loopMode ? " in loop mode (polling every {$pollSecs}s)" : '') . ".\n";
@@ -120,6 +125,7 @@ switch ($command) {
         break;
 
     case 'migrate:rollback':
+        $ensureDb();
         echo "Rolling back migrations...\n";
         $migrator = new Migrator($app->db);
         $steps = (int) ($argv[2] ?? 1);
@@ -133,6 +139,7 @@ switch ($command) {
         break;
 
     case 'migrate:reset':
+        $ensureDb();
         echo "Resetting all migrations...\n";
         $migrator = new Migrator($app->db);
         try {
@@ -145,6 +152,7 @@ switch ($command) {
         break;
 
     case 'migrate:fresh':
+        $ensureDb();
         echo "Dropping all tables and re-migrating...\n";
         $migrator = new Migrator($app->db);
         try {
@@ -157,6 +165,7 @@ switch ($command) {
         break;
 
     case 'migrate:status':
+        $ensureDb();
         $migrator = new Migrator($app->db);
         $statuses = $migrator->status();
         echo "Migration Status:\n";
@@ -274,11 +283,57 @@ switch ($command) {
         }
         exit($totalMissing > 0 ? 1 : 0);
 
+    case 'view:clear':
+        $viewsCacheDir = __DIR__ . '/storage/views';
+        $cleared = 0;
+        if (is_dir($viewsCacheDir)) {
+            foreach (glob($viewsCacheDir . '/*.php') ?: [] as $file) {
+                if (is_file($file)) {
+                    unlink($file);
+                    $cleared++;
+                }
+            }
+        }
+        echo "Compiled view cache cleared ({$cleared} file(s) deleted).\n";
+        break;
+
+    case 'route:list':
+        foreach (['web.php', 'admin.php', 'api.php'] as $rf) {
+            $rPath = __DIR__ . '/routes/' . $rf;
+            if (file_exists($rPath)) {
+                require_once $rPath;
+            }
+        }
+        $routes = $app->router->getRoutes();
+        if (empty($routes)) {
+            echo "No routes registered.\n";
+            exit(0);
+        }
+        echo str_pad("Method", 10) . str_pad("URI", 30) . str_pad("Action", 45) . "Middlewares\n";
+        echo str_repeat("─", 105) . "\n";
+        foreach ($routes as $httpMethod => $paths) {
+            foreach ($paths as $uri => $info) {
+                $cb = $info['callback'];
+                if (is_array($cb)) {
+                    $actionStr = $cb[0] . '@' . $cb[1];
+                } elseif ($cb instanceof \Closure) {
+                    $actionStr = 'Closure';
+                } else {
+                    $actionStr = (string)$cb;
+                }
+                $mwList = implode(', ', array_map(function($m) {
+                    return is_string($m) ? (str_contains($m, '\\') ? basename(str_replace('\\', '/', $m)) : $m) : 'custom';
+                }, $info['middlewares'] ?? []));
+                echo str_pad($httpMethod, 10) . str_pad($uri, 30) . str_pad($actionStr, 45) . ($mwList ?: '-') . "\n";
+            }
+        }
+        break;
+
     case 'help':
     default:
         echo "Spartan CLI Command Runner\n";
         echo "Usage:\n";
-        echo "  php spartan migrate          Run database migrations\n";
+        echo "  php spartan migrate           Run database migrations\n";
         echo "  php spartan migrate:rollback  Roll back the last batch\n";
         echo "  php spartan migrate:reset     Roll back all migrations\n";
         echo "  php spartan migrate:fresh     Drop all and re-migrate\n";
@@ -288,6 +343,8 @@ switch ($command) {
         echo "  php spartan worker --loop     Run the worker in a continuous loop\n";
         echo "  php spartan config:cache      Cache the configuration\n";
         echo "  php spartan config:clear      Clear the configuration cache\n";
+        echo "  php spartan view:clear        Clear the compiled Blade view cache\n";
+        echo "  php spartan route:list        List all registered routes\n";
         echo "  php spartan health            Run system health check\n";
         echo "  php spartan lang:list         List available locales\n";
         echo "  php spartan lang:check        Check locale files for missing keys\n";

@@ -642,4 +642,14 @@ class Router
         }
         return true;
     }
+
+    /**
+     * Get all registered routes.
+     *
+     * @return array<string, array<string, array{callback: mixed, middlewares: array}>>
+     */
+    public function getRoutes(): array
+    {
+        return $this->routes;
+    }
 }

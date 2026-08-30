@@ -204,4 +204,43 @@ final class ViewTest extends TestCase
 
         $this->assertSame([], $property->getValue($this->view));
     }
+
+    public function test_blade_comments_are_stripped(): void
+    {
+        file_put_contents($this->dir . '/comment.blade.php', '<h1>Hello</h1>{{-- This is a comment --}}<p>World</p>');
+        $html = $this->view->renderViewOnly('comment');
+
+        $this->assertStringContainsString('<h1>Hello</h1><p>World</p>', $html);
+        $this->assertStringNotContainsString('This is a comment', $html);
+    }
+
+    public function test_method_directive_emits_hidden_input(): void
+    {
+        file_put_contents($this->dir . '/method.blade.php', '@method("PUT")');
+        $html = $this->view->renderViewOnly('method');
+
+        $this->assertStringContainsString('<input type="hidden" name="_method" value="PUT">', $html);
+    }
+
+    public function test_auth_and_guest_directives(): void
+    {
+        file_put_contents($this->dir . '/auth.blade.php', '@auth<p>Logged In</p>@endauth@guest<p>Guest User</p>@endguest');
+        
+        // Without user logged in
+        $guestHtml = $this->view->renderViewOnly('auth', ['authUser' => null]);
+        $this->assertStringNotContainsString('Logged In', $guestHtml);
+        $this->assertStringContainsString('Guest User', $guestHtml);
+    }
+
+    public function test_raw_php_directive_executes_code_block(): void
+    {
+        file_put_contents(
+            $this->dir . '/raw_php.blade.php',
+            '@php $total = 5 * 10; @endphp<p>Total: {{ $total }}</p>'
+        );
+
+        $html = $this->view->renderViewOnly('raw_php');
+
+        $this->assertStringContainsString('<p>Total: 50</p>', $html);
+    }
 }

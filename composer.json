@@ -42,7 +42,7 @@
     "scripts": {
         "test": "phpunit",
         "test:kernel": "php tests/run_tests.php",
-        "analyse": "phpstan analyse",
+        "analyse": "phpstan analyse --memory-limit=512M",
         "bench": "php tests/stress_test.php",
         "check": [
             "@analyse",
