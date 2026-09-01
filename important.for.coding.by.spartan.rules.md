@@ -908,8 +908,10 @@ When constructing, styling, or modifying views in Spartan, resolve styles in thi
 │    box-sizing: border-box, min-width: 0, overflow-x: hidden, clamp()    │
 │    → ALWAYS APPLIED to guarantee 320px–4K layout stability without burst│
 ├─────────────────────────────────────────────────────────────────────────┤
-│ 4. GLASS-OVER-SCENE SYSTEM (OPTIONAL PRESET)                            │
-│    Applied ONLY when the frosted glass theme or color palette is chosen │
+│ 4. OPTIONAL STYLE PRESETS (Mutually Exclusive — Pick One Per Project)   │
+│    a) GLASS-OVER-SCENE — frosted panel system over a painted CSS scene  │
+│    b) 3D ISOMETRIC STACKED BLOCKS — chunky toy-like layered tower       │
+│    Applied ONLY when the user explicitly requests one of these presets  │
 ├─────────────────────────────────────────────────────────────────────────┤
 │ 5. DEFAULT SPARTAN BASE FALLBACK (LOWEST PRIORITY)                      │
 │    Clean minimal foundation applied only if zero styles are specified   │
@@ -1135,3 +1137,371 @@ All of these share `.panel-bg` (the token block above). Only the differences are
 - Body text ≥ 15px, line length under 60ch, contrast checked against the *brightest* region of the scene, not the average.
 - One HTML file unless the user asks otherwise. Fonts via one Google Fonts link or system stack.
 
+
+---
+
+# 3D Isometric Stacked Blocks UI Style (Optional Preset)
+
+Apply this style only when the user or project requests the "3D stacked blocks", "isometric tower", or "layered infographic" look. It is a chunky, toy-like vertical stack of colored blocks representing layered/hierarchical content (architecture diagrams, process flows, model layers, org charts, etc.).
+
+---
+
+## Interaction protocol
+
+Ask the user exactly **one** question before writing code:
+
+> What content does the stack represent? Provide layers as: `number | title | description | examples[]`
+
+Take the answer, auto-assign the rainbow color ramp, build the stack. Do not ask about colors, fonts, icons, or layout unless the user's request is impossible without it.
+
+If the user provides fewer than 3 layers or more than 12, proceed anyway — the system handles 1–N layers.
+
+---
+
+## Non-negotiable rules
+
+These are corrections for failures that occur every time this style is built naively.
+
+1. **Light shadow variant only.** Use a single-direction `box-shadow` with 1–2px offset and low opacity (~0.10–0.20). Never use heavy 5–6px floating shadows. The highlight gradient carries the 3D read, not the shadow.
+2. **One shadow per element.** Never stack multiple `box-shadow` layers. One subtle shadow, period.
+3. **Highlight bevel on every block.** Each block gets a lighter `linear-gradient` overlay on the top-left quadrant to simulate a top-surface bevel. This is the primary 3D cue.
+4. **Icon tray is a flat color shift.** The icon-panel area uses a darker shade of the block's base color as a flat fill — never an `inset` shadow.
+5. **Generous radius.** All blocks, tiles, and icon trays use `border-radius: var(--r)` (12–20px). No sharp corners anywhere.
+6. **Consistent row height.** Every layer row has the same height within a stack. The gap between rows is 4–8px so the tower reads as a continuous structure.
+7. **Number tile is a square.** Same height as the block, 1:1 aspect ratio, same accent color, white numeral, slight depth via the same single shadow.
+8. **Examples tile is neutral.** Right-side tile is always light gray (`--ex-bg`), never the accent color. Label text uses the accent color; example terms are dark gray/black.
+9. **Color auto-ramp.** Layers auto-cycle through the 7-stop palette. If there are more layers than palette stops, the ramp wraps. Adjacent layers must be visually distinguishable.
+10. **Skip decorative base elements unless they reinforce meaning.** The ground plate is always present; decorative icons on the base (building, cloud, cables) are added only when they clarify the content's start/end points.
+11. **No comments in the code.**
+
+---
+
+## Token block
+
+Emit exactly this shape in `:root`.
+
+```css
+:root {
+  --font-stack: 'Montserrat', 'Poppins', system-ui, sans-serif;
+  --r: 16px;
+  --r-sm: 10px;
+  --gap-row: 6px;
+  --shadow: 0 2px 4px rgba(0,0,0,.12);
+  --highlight: linear-gradient(135deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 50%);
+  --ground: #d6d0c8;
+  --ground-dark: #b8b0a4;
+  --base-plate: linear-gradient(180deg, #c4bdb4 0%, #a89f94 100%);
+  --ex-bg: #f0ece6;
+  --ex-text: #2a2a2a;
+  --grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.06'/%3E%3C/svg%3E");
+
+  --c1: #7c3aed; --c1-dark: #5b21b6; --c1-light: #a78bfa;
+  --c2: #2563eb; --c2-dark: #1d4ed8; --c2-light: #60a5fa;
+  --c3: #0891b2; --c3-dark: #0e7490; --c3-light: #22d3ee;
+  --c4: #059669; --c4-dark: #047857; --c4-light: #34d399;
+  --c5: #ca8a04; --c5-dark: #a16207; --c5-light: #facc15;
+  --c6: #ea580c; --c6-dark: #c2410c; --c6-light: #fb923c;
+  --c7: #dc2626; --c7-dark: #b91c1c; --c7-light: #f87171;
+}
+```
+
+---
+
+## Color palette — Rainbow ramp (default)
+
+| Layer | Token | Base | Dark (tray) | Light (highlight) | Hex sample |
+|---|---|---|---|---|---|
+| 1 | `--c1` | Purple | `#5b21b6` | `#a78bfa` | `#7c3aed` |
+| 2 | `--c2` | Blue | `#1d4ed8` | `#60a5fa` | `#2563eb` |
+| 3 | `--c3` | Teal | `#0e7490` | `#22d3ee` | `#0891b2` |
+| 4 | `--c4` | Green | `#047857` | `#34d399` | `#059669` |
+| 5 | `--c5` | Gold | `#a16207` | `#facc15` | `#ca8a04` |
+| 6 | `--c6` | Orange | `#c2410c` | `#fb923c` | `#ea580c` |
+| 7 | `--c7` | Red | `#b91c1c` | `#f87171` | `#dc2626` |
+
+To swap the entire palette, replace the 7 `--cN` triplets in `:root`. Adjacent layers must differ in hue by at least 30°.
+
+---
+
+## Building a custom palette
+
+If the user names a palette not listed:
+
+1. Pick 5–9 hue stops evenly distributed around the wheel (or clustered for a warm/cool theme).
+2. For each stop: base at ~55% lightness, dark at ~38% lightness (icon tray fill), light at ~72% lightness (highlight gradient blend).
+3. Ensure WCAG AA contrast for white text on every base color (minimum 4.5:1).
+4. Name the tokens `--c1` through `--cN` and document the mapping.
+
+---
+
+## Scene markup
+
+```html
+<div class="iso-ground">
+  <div class="iso-stack">
+
+    <div class="layer-row" style="--accent:var(--c1);--accent-dark:var(--c1-dark);--accent-light:var(--c1-light)">
+      <div class="num-tile">1</div>
+      <div class="main-block">
+        <div class="block-text">
+          <h3 class="block-title">LAYER TITLE</h3>
+          <p class="block-desc">Short 2-3 line plain-English description of this layer.</p>
+        </div>
+        <div class="icon-tray">
+          <!-- 2-4 inline SVG icons here -->
+        </div>
+      </div>
+      <div class="ex-tile">
+        <span class="ex-label">Examples:</span>
+        <span class="ex-list">Term A, Term B, Term C</span>
+      </div>
+    </div>
+
+    <!-- Repeat .layer-row for each layer -->
+
+  </div>
+  <div class="base-plate"></div>
+</div>
+```
+
+---
+
+## Core CSS
+
+```css
+.iso-ground {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(1rem, 2vw, 3rem);
+  background: var(--ground);
+  background-image: var(--grain);
+  min-height: 100vh;
+}
+
+.iso-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-row);
+  width: 100%;
+  max-width: 1100px;
+}
+
+.layer-row {
+  display: grid;
+  grid-template-columns: 72px 1fr 220px;
+  gap: var(--gap-row);
+  min-height: 96px;
+  align-items: stretch;
+}
+
+.num-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  background-image: var(--highlight);
+  color: #fff;
+  font: 900 clamp(1.5rem, 2vw, 2.25rem) var(--font-stack);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  aspect-ratio: 1;
+  align-self: center;
+}
+
+.main-block {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--accent);
+  background-image: var(--highlight);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  padding: 1rem 1.25rem;
+  overflow: hidden;
+}
+
+.block-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.block-title {
+  font: 800 clamp(0.95rem, 1.2vw, 1.3rem) var(--font-stack);
+  text-transform: uppercase;
+  color: #fff;
+  letter-spacing: .04em;
+  margin: 0 0 .25rem;
+  text-shadow: 0 1px 2px rgba(0,0,0,.18);
+}
+
+.block-desc {
+  font: 400 clamp(0.8rem, 0.9vw, 0.95rem) var(--font-stack);
+  color: rgba(255,255,255,.88);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.icon-tray {
+  display: flex;
+  gap: .6rem;
+  align-items: center;
+  background: var(--accent-dark);
+  border-radius: var(--r-sm);
+  padding: .6rem .8rem;
+  flex-shrink: 0;
+}
+
+.icon-tray svg {
+  width: 32px;
+  height: 32px;
+  fill: #fff;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.15));
+}
+
+.ex-tile {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: var(--ex-bg);
+  background-image: var(--highlight);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  padding: 1rem 1.1rem;
+}
+
+.ex-label {
+  font: 700 .8rem var(--font-stack);
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  margin-bottom: .3rem;
+}
+
+.ex-list {
+  font: 400 .85rem var(--font-stack);
+  color: var(--ex-text);
+  line-height: 1.4;
+}
+
+.base-plate {
+  width: 100%;
+  max-width: 1100px;
+  height: 18px;
+  background: var(--base-plate);
+  border-radius: 0 0 var(--r) var(--r);
+  box-shadow: var(--shadow);
+  margin-top: calc(var(--gap-row) * -1);
+}
+```
+
+---
+
+## Responsive rules
+
+Breakpoints follow the Spartan canonical triple-breakpoint system from Section 12.4:
+- Desktop: default (>992px)
+- Tablet: ≤992px
+- Mobile: ≤576px
+
+```css
+@media (max-width: 992px) {
+  .layer-row {
+    grid-template-columns: 56px 1fr;
+  }
+  .ex-tile {
+    grid-column: 1 / -1;
+  }
+  .num-tile {
+    font-size: 1.3rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .layer-row {
+    grid-template-columns: 1fr;
+  }
+  .num-tile {
+    width: 48px;
+    height: 48px;
+    aspect-ratio: 1;
+    justify-self: start;
+  }
+  .main-block {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .icon-tray {
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0s !important;
+    transition-duration: 0s !important;
+  }
+}
+```
+
+---
+
+## Components
+
+All components inherit the token block above. Only the differences are listed.
+
+**Number Tile** — 72px square (56px at ≤992px tablet, 48px at ≤576px mobile), `--accent` fill, white numeral, `var(--highlight)` overlay, `var(--shadow)` depth, `var(--r)` radius. Extra-bold 900 weight.
+
+**Main Block** — flex row containing `.block-text` (flex: 1) and `.icon-tray`. Base fill is `--accent` with the highlight gradient. Title is uppercase bold white, description is muted white at 88% opacity. Shadow is the single subtle `var(--shadow)`. Stacks vertically (flex-direction: column) at ≤576px.
+
+**Icon Tray** — recessed panel inside the main block, filled with `--accent-dark` (flat, no inset shadow). Contains 2–4 inline SVGs at 32px, white fill, with a tiny `drop-shadow`. Radius `var(--r-sm)`. Wraps at ≤576px.
+
+**Examples Tile** — light neutral tile (`--ex-bg`), same row height, `var(--r)` radius. Label in `--accent` color (bold uppercase), example terms in `--ex-text` (regular weight). Spans full width below main block at ≤992px.
+
+**Base Plate** — full-width flat strip below the stack, stone-colored gradient, rounded only on bottom corners. Anchors the tower visually to the ground.
+
+**Interactive press state** — On buttons or clickable blocks, reduce shadow offset to `0 1px 2px rgba(0,0,0,.08)` and add `transform: translateY(1px)` on `:active`. Never use scale transforms.
+
+---
+
+## Data-driven rendering (JS component pattern)
+
+```js
+function renderLayerStack(layers) {
+  const colors = ['c1','c2','c3','c4','c5','c6','c7'];
+  return layers.map((layer, i) => {
+    const c = colors[i % colors.length];
+    return `
+      <div class="layer-row" style="--accent:var(--${c});--accent-dark:var(--${c}-dark);--accent-light:var(--${c}-light)">
+        <div class="num-tile">${layer.number}</div>
+        <div class="main-block">
+          <div class="block-text">
+            <h3 class="block-title">${layer.title}</h3>
+            <p class="block-desc">${layer.description}</p>
+          </div>
+          <div class="icon-tray">${layer.icons.join('')}</div>
+        </div>
+        <div class="ex-tile">
+          <span class="ex-label">Examples:</span>
+          <span class="ex-list">${layer.examples.join(', ')}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+```
+
+Data shape per layer:
+```js
+{ number: 1, title: 'LAYER NAME', description: '...', color: 'c1', icons: ['<svg>...</svg>'], examples: ['Term A', 'Term B'] }
+```
+
+---
+
+## Quality floor
+
+- Responsive to 360px with no horizontal scroll.
+- `:focus-visible` outline in `--accent-light`, 3px, offset 3px.
+- `@media (prefers-reduced-motion: reduce)` kills all transitions and smooth scroll.
+- Body text ≥ 15px, line length under 60ch, white text contrast checked against every `--cN` base color (minimum WCAG AA 4.5:1).
+- One HTML file unless the user asks otherwise. Fonts via one Google Fonts link or system stack.
+- All blocks maintain equal row height within a single stack instance.
