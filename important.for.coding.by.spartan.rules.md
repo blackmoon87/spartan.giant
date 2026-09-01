@@ -1162,17 +1162,21 @@ If the user provides fewer than 3 layers or more than 12, proceed anyway — the
 
 These are corrections for failures that occur every time this style is built naively.
 
-1. **Light shadow variant only.** Use a single-direction `box-shadow` with 1–2px offset and low opacity (~0.10–0.20). Never use heavy 5–6px floating shadows. The highlight gradient carries the 3D read, not the shadow.
-2. **One shadow per element.** Never stack multiple `box-shadow` layers. One subtle shadow, period.
-3. **Highlight bevel on every block.** Each block gets a lighter `linear-gradient` overlay on the top-left quadrant to simulate a top-surface bevel. This is the primary 3D cue.
-4. **Icon tray is a flat color shift.** The icon-panel area uses a darker shade of the block's base color as a flat fill — never an `inset` shadow.
-5. **Generous radius.** All blocks, tiles, and icon trays use `border-radius: var(--r)` (12–20px). No sharp corners anywhere.
-6. **Consistent row height.** Every layer row has the same height within a stack. The gap between rows is 4–8px so the tower reads as a continuous structure.
-7. **Number tile is a square.** Same height as the block, 1:1 aspect ratio, same accent color, white numeral, slight depth via the same single shadow.
-8. **Examples tile is neutral.** Right-side tile is always light gray (`--ex-bg`), never the accent color. Label text uses the accent color; example terms are dark gray/black.
-9. **Color auto-ramp.** Layers auto-cycle through the 7-stop palette. If there are more layers than palette stops, the ramp wraps. Adjacent layers must be visually distinguishable.
-10. **Skip decorative base elements unless they reinforce meaning.** The ground plate is always present; decorative icons on the base (building, cloud, cables) are added only when they clarify the content's start/end points.
-11. **No comments in the code.**
+1. **Hard directional shadow, not soft blur.** Use `box-shadow: 2px 2px 0 var(--shadow-strong)` — a crisp, zero-blur, bottom-right offset. This is what gives the chunky toy-block feel. Soft blurred shadows (`0 2px 4px`) look like generic cards, not stacked blocks.
+2. **One shadow per element.** Never stack multiple `box-shadow` layers. One hard shadow, period.
+3. **Highlight bevel on every colored block.** Each block gets a lighter `linear-gradient(135deg, rgba(255,255,255,.22), rgba(255,255,255,0) 45%)` overlay to simulate a top-surface bevel. This plus the hard shadow carry the full 3D read.
+4. **Icon tray is a flat semi-transparent darken.** Use `background: rgba(0,0,0,.14)` inside the main block — never `inset` shadow, never `--accent-dark`. The tray must look like a recessed shelf inside the block.
+5. **Generous radius.** All blocks, tiles, and icon trays use `border-radius: var(--r)` (16px). Icon tray uses `var(--r-sm)` (10px). No sharp corners anywhere.
+6. **Main block is a column stack.** Layout is `flex-direction: column` — title on top, description below, icon tray at the bottom. Never side-by-side with the icon tray on desktop.
+7. **Number tile stretches full row height.** The number tile fills the row's height via `align-items: stretch` on the grid row. Do NOT lock it to `aspect-ratio: 1` — it should be a tall rectangle on rows with long descriptions.
+8. **Icon tray hugs its content.** Use `width: fit-content` so the tray is only as wide as its icons, not stretched to fill the block.
+9. **Examples tile is neutral with lighter shadow.** Right-side tile is always warm gray (`--ex-bg`), no highlight gradient overlay. Its shadow is lighter than the main blocks (`--shadow-light`) to create visual hierarchy.
+10. **Descending numbering.** Number the top layer with the highest number and descend to 1 at the bottom, so the stack reads as "building up from the ground." The base plate anchors layer 1.
+11. **Base plate has presence.** The base plate is 46px tall, fully rounded on all corners (`var(--r)`), carries centered uppercase text (e.g. a tagline), and has its own shadow. It is NOT a thin invisible strip.
+12. **Color auto-ramp.** Layers auto-cycle through the 7-stop palette. If there are more layers than palette stops, the ramp wraps. Adjacent layers must be visually distinguishable.
+13. **Grain texture is optional.** Include the SVG noise overlay on `.iso-ground` only if the design calls for a clay/stone feel. Default to a clean flat ground color.
+14. **Icons can be emoji or SVG.** Both are valid. Emoji are simpler and match the toy aesthetic naturally. SVGs are preferred when the project has a curated icon set. Never mix the two in one stack.
+15. **No comments in the code.**
 
 ---
 
@@ -1182,26 +1186,26 @@ Emit exactly this shape in `:root`.
 
 ```css
 :root {
-  --font-stack: 'Montserrat', 'Poppins', system-ui, sans-serif;
+  --font-stack: 'Poppins', 'Montserrat', system-ui, sans-serif;
   --r: 16px;
   --r-sm: 10px;
   --gap-row: 6px;
-  --shadow: 0 2px 4px rgba(0,0,0,.12);
-  --highlight: linear-gradient(135deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 50%);
-  --ground: #d6d0c8;
-  --ground-dark: #b8b0a4;
-  --base-plate: linear-gradient(180deg, #c4bdb4 0%, #a89f94 100%);
-  --ex-bg: #f0ece6;
-  --ex-text: #2a2a2a;
-  --grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.06'/%3E%3C/svg%3E");
+  --bg: #EDE7DD;
+  --ground: #C9C2B4;
+  --ink: #2B2620;
+  --shadow-strong: rgba(30, 24, 14, 0.35);
+  --shadow-light: rgba(30, 24, 14, 0.10);
+  --highlight: linear-gradient(135deg, rgba(255,255,255,.22), rgba(255,255,255,0) 45%);
+  --ex-bg: #DAD4C8;
+  --ex-text: #4a4536;
 
-  --c1: #7c3aed; --c1-dark: #5b21b6; --c1-light: #a78bfa;
-  --c2: #2563eb; --c2-dark: #1d4ed8; --c2-light: #60a5fa;
-  --c3: #0891b2; --c3-dark: #0e7490; --c3-light: #22d3ee;
-  --c4: #059669; --c4-dark: #047857; --c4-light: #34d399;
-  --c5: #ca8a04; --c5-dark: #a16207; --c5-light: #facc15;
-  --c6: #ea580c; --c6-dark: #c2410c; --c6-light: #fb923c;
-  --c7: #dc2626; --c7-dark: #b91c1c; --c7-light: #f87171;
+  --c1: #6B3FA0;
+  --c2: #2F5FA8;
+  --c3: #1E8E8E;
+  --c4: #3E9142;
+  --c5: #D6A417;
+  --c6: #D9722A;
+  --c7: #B23A3A;
 }
 ```
 
@@ -1209,17 +1213,17 @@ Emit exactly this shape in `:root`.
 
 ## Color palette — Rainbow ramp (default)
 
-| Layer | Token | Base | Dark (tray) | Light (highlight) | Hex sample |
-|---|---|---|---|---|---|
-| 1 | `--c1` | Purple | `#5b21b6` | `#a78bfa` | `#7c3aed` |
-| 2 | `--c2` | Blue | `#1d4ed8` | `#60a5fa` | `#2563eb` |
-| 3 | `--c3` | Teal | `#0e7490` | `#22d3ee` | `#0891b2` |
-| 4 | `--c4` | Green | `#047857` | `#34d399` | `#059669` |
-| 5 | `--c5` | Gold | `#a16207` | `#facc15` | `#ca8a04` |
-| 6 | `--c6` | Orange | `#c2410c` | `#fb923c` | `#ea580c` |
-| 7 | `--c7` | Red | `#b91c1c` | `#f87171` | `#dc2626` |
+| Layer | Token | Hue | Hex |
+|---|---|---|---|
+| 1 (top) | `--c1` | Purple | `#6B3FA0` |
+| 2 | `--c2` | Blue | `#2F5FA8` |
+| 3 | `--c3` | Teal | `#1E8E8E` |
+| 4 | `--c4` | Green | `#3E9142` |
+| 5 | `--c5` | Gold | `#D6A417` |
+| 6 | `--c6` | Orange | `#D9722A` |
+| 7 (bottom) | `--c7` | Red | `#B23A3A` |
 
-To swap the entire palette, replace the 7 `--cN` triplets in `:root`. Adjacent layers must differ in hue by at least 30°.
+Icon tray darkening is handled by `rgba(0,0,0,.14)` overlay — no separate dark token needed per color. To swap the palette, replace the 7 `--cN` values in `:root`. Adjacent layers must differ in hue by at least 30°.
 
 ---
 
@@ -1228,9 +1232,10 @@ To swap the entire palette, replace the 7 `--cN` triplets in `:root`. Adjacent l
 If the user names a palette not listed:
 
 1. Pick 5–9 hue stops evenly distributed around the wheel (or clustered for a warm/cool theme).
-2. For each stop: base at ~55% lightness, dark at ~38% lightness (icon tray fill), light at ~72% lightness (highlight gradient blend).
+2. For each stop: pick a medium-saturation color at ~45–55% lightness that reads clearly as a solid block against a warm neutral ground.
 3. Ensure WCAG AA contrast for white text on every base color (minimum 4.5:1).
 4. Name the tokens `--c1` through `--cN` and document the mapping.
+5. The icon tray darkening (`rgba(0,0,0,.14)`) works universally — no per-color dark variant needed.
 
 ---
 
@@ -1238,29 +1243,35 @@ If the user names a palette not listed:
 
 ```html
 <div class="iso-ground">
+
+  <header class="stack-header">
+    <div class="eyebrow">N layers</div>
+    <h1>Stack Title</h1>
+    <p>One-line description of what the stack represents.</p>
+  </header>
+
   <div class="iso-stack">
 
-    <div class="layer-row" style="--accent:var(--c1);--accent-dark:var(--c1-dark);--accent-light:var(--c1-light)">
-      <div class="num-tile">1</div>
+    <div class="layer-row" style="--color:var(--c1)">
+      <div class="num-tile">7</div>
       <div class="main-block">
-        <div class="block-text">
-          <h3 class="block-title">LAYER TITLE</h3>
-          <p class="block-desc">Short 2-3 line plain-English description of this layer.</p>
-        </div>
+        <p class="block-title">LAYER TITLE</p>
+        <p class="block-desc">Short 2-3 line plain-English description of this layer.</p>
         <div class="icon-tray">
-          <!-- 2-4 inline SVG icons here -->
+          <span>🔧</span><span>📦</span>
         </div>
       </div>
       <div class="ex-tile">
-        <span class="ex-label">Examples:</span>
-        <span class="ex-list">Term A, Term B, Term C</span>
+        <p class="ex-label">Examples:</p>
+        <p class="ex-list">Term A, Term B, Term C</p>
       </div>
     </div>
 
-    <!-- Repeat .layer-row for each layer -->
+    <!-- Repeat .layer-row for each layer, descending numbers -->
 
   </div>
-  <div class="base-plate"></div>
+  <div class="base-plate">TAGLINE TEXT HERE</div>
+
 </div>
 ```
 
@@ -1269,129 +1280,158 @@ If the user names a palette not listed:
 ## Core CSS
 
 ```css
+body {
+  margin: 0;
+  font-family: var(--font-stack);
+  background: var(--bg);
+  color: var(--ink);
+  padding: 48px 20px 80px;
+  -webkit-font-smoothing: antialiased;
+}
+
 .iso-ground {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: clamp(1rem, 2vw, 3rem);
-  background: var(--ground);
-  background-image: var(--grain);
-  min-height: 100vh;
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.stack-header {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto 56px;
+}
+
+.stack-header .eyebrow {
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  color: #8a7a5c;
+  margin-bottom: 6px;
+}
+
+.stack-header h1 {
+  font-size: clamp(32px, 5vw, 48px);
+  margin: 0 0 14px;
+  font-weight: 800;
+}
+
+.stack-header p {
+  font-size: 17px;
+  line-height: 1.5;
+  color: #55503f;
 }
 
 .iso-stack {
   display: flex;
   flex-direction: column;
   gap: var(--gap-row);
-  width: 100%;
-  max-width: 1100px;
 }
 
 .layer-row {
   display: grid;
-  grid-template-columns: 72px 1fr 220px;
+  grid-template-columns: 90px 1fr 200px;
   gap: var(--gap-row);
-  min-height: 96px;
   align-items: stretch;
 }
 
 .num-tile {
+  background: var(--color);
+  border-radius: var(--r);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--accent);
-  background-image: var(--highlight);
   color: #fff;
-  font: 900 clamp(1.5rem, 2vw, 2.25rem) var(--font-stack);
-  border-radius: var(--r);
-  box-shadow: var(--shadow);
-  aspect-ratio: 1;
-  align-self: center;
+  font-size: 42px;
+  font-weight: 800;
+  box-shadow: 2px 2px 0 var(--shadow-strong);
+  background-image: var(--highlight);
 }
 
 .main-block {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  background: var(--accent);
-  background-image: var(--highlight);
+  background: var(--color);
   border-radius: var(--r);
-  box-shadow: var(--shadow);
-  padding: 1rem 1.25rem;
-  overflow: hidden;
-}
-
-.block-text {
-  flex: 1;
-  min-width: 0;
-}
-
-.block-title {
-  font: 800 clamp(0.95rem, 1.2vw, 1.3rem) var(--font-stack);
-  text-transform: uppercase;
-  color: #fff;
-  letter-spacing: .04em;
-  margin: 0 0 .25rem;
-  text-shadow: 0 1px 2px rgba(0,0,0,.18);
-}
-
-.block-desc {
-  font: 400 clamp(0.8rem, 0.9vw, 0.95rem) var(--font-stack);
-  color: rgba(255,255,255,.88);
-  margin: 0;
-  line-height: 1.45;
-}
-
-.icon-tray {
-  display: flex;
-  gap: .6rem;
-  align-items: center;
-  background: var(--accent-dark);
-  border-radius: var(--r-sm);
-  padding: .6rem .8rem;
-  flex-shrink: 0;
-}
-
-.icon-tray svg {
-  width: 32px;
-  height: 32px;
-  fill: #fff;
-  filter: drop-shadow(0 1px 1px rgba(0,0,0,.15));
-}
-
-.ex-tile {
+  padding: 18px 22px;
+  box-shadow: 2px 2px 0 var(--shadow-strong);
+  background-image: var(--highlight);
   display: flex;
   flex-direction: column;
   justify-content: center;
+  gap: 10px;
+}
+
+.block-title {
+  color: #fff;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  margin: 0;
+}
+
+.block-desc {
+  color: rgba(255,255,255,0.9);
+  font-size: 14px;
+  line-height: 1.4;
+  margin: 0;
+  max-width: 46ch;
+}
+
+.icon-tray {
+  background: rgba(0,0,0,0.14);
+  border-radius: var(--r-sm);
+  padding: 8px 12px;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  width: fit-content;
+}
+
+.icon-tray span {
+  font-size: 22px;
+  filter: drop-shadow(1px 2px 0 rgba(0,0,0,0.25));
+}
+
+.icon-tray svg {
+  width: 28px;
+  height: 28px;
+  fill: #fff;
+  filter: drop-shadow(1px 2px 0 rgba(0,0,0,0.25));
+}
+
+.ex-tile {
   background: var(--ex-bg);
-  background-image: var(--highlight);
   border-radius: var(--r);
-  box-shadow: var(--shadow);
-  padding: 1rem 1.1rem;
+  padding: 16px 18px;
+  box-shadow: 2px 2px 0 var(--shadow-light);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .ex-label {
-  font: 700 .8rem var(--font-stack);
-  color: var(--accent);
-  text-transform: uppercase;
-  letter-spacing: .03em;
-  margin-bottom: .3rem;
+  color: var(--color);
+  font-weight: 800;
+  font-size: 13px;
+  margin: 0 0 6px;
 }
 
 .ex-list {
-  font: 400 .85rem var(--font-stack);
+  font-size: 13px;
   color: var(--ex-text);
-  line-height: 1.4;
+  line-height: 1.5;
+  margin: 0;
 }
 
 .base-plate {
-  width: 100%;
-  max-width: 1100px;
-  height: 18px;
-  background: var(--base-plate);
-  border-radius: 0 0 var(--r) var(--r);
-  box-shadow: var(--shadow);
-  margin-top: calc(var(--gap-row) * -1);
+  max-width: 920px;
+  margin: 10px auto 0;
+  background: var(--ground);
+  border-radius: 20px;
+  height: 46px;
+  box-shadow: 2px 2px 0 rgba(30, 24, 14, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: #6b6350;
 }
 ```
 
@@ -1407,29 +1447,29 @@ Breakpoints follow the Spartan canonical triple-breakpoint system from Section 1
 ```css
 @media (max-width: 992px) {
   .layer-row {
-    grid-template-columns: 56px 1fr;
+    grid-template-columns: 60px 1fr;
+    grid-template-areas:
+      "num main"
+      "ex ex";
   }
-  .ex-tile {
-    grid-column: 1 / -1;
-  }
-  .num-tile {
-    font-size: 1.3rem;
-  }
+  .num-tile { grid-area: num; font-size: 28px; border-radius: 12px; }
+  .main-block { grid-area: main; border-radius: 12px; padding: 14px 16px; }
+  .ex-tile { grid-area: ex; border-radius: 12px; }
 }
 
 @media (max-width: 576px) {
   .layer-row {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "num"
+      "main"
+      "ex";
   }
   .num-tile {
-    width: 48px;
-    height: 48px;
-    aspect-ratio: 1;
+    width: 52px;
+    height: 52px;
+    font-size: 24px;
     justify-self: start;
-  }
-  .main-block {
-    flex-direction: column;
-    align-items: stretch;
   }
   .icon-tray {
     flex-wrap: wrap;
@@ -1450,17 +1490,19 @@ Breakpoints follow the Spartan canonical triple-breakpoint system from Section 1
 
 All components inherit the token block above. Only the differences are listed.
 
-**Number Tile** — 72px square (56px at ≤992px tablet, 48px at ≤576px mobile), `--accent` fill, white numeral, `var(--highlight)` overlay, `var(--shadow)` depth, `var(--r)` radius. Extra-bold 900 weight.
+**Stack Header** — centered above the stack. Eyebrow count ("7 layers") in muted warm text, large bold title (`clamp(32px, 5vw, 48px)`), description paragraph in `#55503f`. Max-width 640px.
 
-**Main Block** — flex row containing `.block-text` (flex: 1) and `.icon-tray`. Base fill is `--accent` with the highlight gradient. Title is uppercase bold white, description is muted white at 88% opacity. Shadow is the single subtle `var(--shadow)`. Stacks vertically (flex-direction: column) at ≤576px.
+**Number Tile** — 90px wide (60px at ≤992px, 52px at ≤576px), stretches full row height via grid `align-items: stretch`. `--color` fill, white numeral at 42px (28px tablet, 24px mobile), `var(--highlight)` overlay, hard shadow `2px 2px 0 var(--shadow-strong)`. 800 weight. Never locked to `aspect-ratio: 1`.
 
-**Icon Tray** — recessed panel inside the main block, filled with `--accent-dark` (flat, no inset shadow). Contains 2–4 inline SVGs at 32px, white fill, with a tiny `drop-shadow`. Radius `var(--r-sm)`. Wraps at ≤576px.
+**Main Block** — flex **column**: title → description → icon tray (stacked vertically, not side-by-side). `--color` fill with highlight gradient. Title is 22px bold white, description is 14px at 90% white opacity. Hard shadow `2px 2px 0 var(--shadow-strong)`. Padding 18px 22px.
 
-**Examples Tile** — light neutral tile (`--ex-bg`), same row height, `var(--r)` radius. Label in `--accent` color (bold uppercase), example terms in `--ex-text` (regular weight). Spans full width below main block at ≤992px.
+**Icon Tray** — recessed shelf inside the main block, `rgba(0,0,0,.14)` flat fill (not a per-color dark token). `width: fit-content`. Contains 2–4 emoji spans or SVGs at 22–28px with `drop-shadow(1px 2px 0 rgba(0,0,0,.25))`. Radius `var(--r-sm)`. Wraps at ≤576px.
 
-**Base Plate** — full-width flat strip below the stack, stone-colored gradient, rounded only on bottom corners. Anchors the tower visually to the ground.
+**Examples Tile** — warm neutral tile (`--ex-bg: #DAD4C8`), no highlight gradient. Lighter shadow `2px 2px 0 var(--shadow-light)`. Label in `--color` (bold 13px), example terms in `--ex-text` (13px regular). Spans full width below main block at ≤992px via `grid-area: ex`.
 
-**Interactive press state** — On buttons or clickable blocks, reduce shadow offset to `0 1px 2px rgba(0,0,0,.08)` and add `transform: translateY(1px)` on `:active`. Never use scale transforms.
+**Base Plate** — 46px tall, full `border-radius: 20px` on all corners, `--ground` fill, centered uppercase tagline text in `#6b6350` at 13px with `letter-spacing: 0.08em`. Shadow `2px 2px 0 rgba(30,24,14,.15)`. 10px margin above.
+
+**Interactive press state** — On buttons or clickable blocks, reduce shadow to `1px 1px 0` and add `transform: translateY(1px)` on `:active`. Never use scale transforms.
 
 ---
 
@@ -1469,21 +1511,21 @@ All components inherit the token block above. Only the differences are listed.
 ```js
 function renderLayerStack(layers) {
   const colors = ['c1','c2','c3','c4','c5','c6','c7'];
+  const total = layers.length;
   return layers.map((layer, i) => {
     const c = colors[i % colors.length];
+    const num = total - i;
     return `
-      <div class="layer-row" style="--accent:var(--${c});--accent-dark:var(--${c}-dark);--accent-light:var(--${c}-light)">
-        <div class="num-tile">${layer.number}</div>
+      <div class="layer-row" style="--color:var(--${c})">
+        <div class="num-tile">${num}</div>
         <div class="main-block">
-          <div class="block-text">
-            <h3 class="block-title">${layer.title}</h3>
-            <p class="block-desc">${layer.description}</p>
-          </div>
-          <div class="icon-tray">${layer.icons.join('')}</div>
+          <p class="block-title">${layer.title}</p>
+          <p class="block-desc">${layer.description}</p>
+          <div class="icon-tray">${layer.icons.map(ic => '<span>' + ic + '</span>').join('')}</div>
         </div>
         <div class="ex-tile">
-          <span class="ex-label">Examples:</span>
-          <span class="ex-list">${layer.examples.join(', ')}</span>
+          <p class="ex-label">Examples:</p>
+          <p class="ex-list">${layer.examples.join(', ')}</p>
         </div>
       </div>`;
   }).join('');
@@ -1492,8 +1534,10 @@ function renderLayerStack(layers) {
 
 Data shape per layer:
 ```js
-{ number: 1, title: 'LAYER NAME', description: '...', color: 'c1', icons: ['<svg>...</svg>'], examples: ['Term A', 'Term B'] }
+{ title: 'LAYER NAME', description: '...', icons: ['☕', '🔧'], examples: ['Term A', 'Term B'] }
 ```
+
+Numbers are auto-assigned descending (total → 1) so the stack reads as building upward from the base plate.
 
 ---
 

@@ -3,227 +3,213 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Shop Architecture — 3D Stacked Blocks</title>
-<meta name="description" content="E-commerce shop architecture visualized as 3D isometric stacked blocks infographic">
+<title>The Shop Stack — From Infrastructure to Storefront</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;max-width:100%;overflow-x:hidden}
 img,video,canvas,svg{max-width:100%;height:auto;display:block}
-.iso-stack>*,.layer-row>*{min-width:0;overflow-wrap:break-word}
 
 :root{
-  --font-stack:'Montserrat','Poppins',system-ui,sans-serif;
+  --font-stack:'Poppins',system-ui,sans-serif;
   --r:16px;
   --r-sm:10px;
   --gap-row:6px;
-  --shadow:0 2px 4px rgba(0,0,0,.12);
-  --highlight:linear-gradient(135deg,rgba(255,255,255,.28) 0%,rgba(255,255,255,0) 50%);
-  --ground:#d6d0c8;
-  --ground-dark:#b8b0a4;
-  --base-plate:linear-gradient(180deg,#c4bdb4 0%,#a89f94 100%);
-  --ex-bg:#f0ece6;
-  --ex-text:#2a2a2a;
-  --grain:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.06'/%3E%3C/svg%3E");
-  --c1:#7c3aed;--c1-dark:#5b21b6;--c1-light:#a78bfa;
-  --c2:#2563eb;--c2-dark:#1d4ed8;--c2-light:#60a5fa;
-  --c3:#0891b2;--c3-dark:#0e7490;--c3-light:#22d3ee;
-  --c4:#059669;--c4-dark:#047857;--c4-light:#34d399;
-  --c5:#ca8a04;--c5-dark:#a16207;--c5-light:#facc15;
-  --c6:#ea580c;--c6-dark:#c2410c;--c6-light:#fb923c;
-  --c7:#dc2626;--c7-dark:#b91c1c;--c7-light:#f87171;
+  --bg:#EDE7DD;
+  --ground:#C9C2B4;
+  --ink:#2B2620;
+  --shadow-strong:rgba(30,24,14,0.35);
+  --shadow-light:rgba(30,24,14,0.10);
+  --highlight:linear-gradient(135deg,rgba(255,255,255,.22),rgba(255,255,255,0) 45%);
+  --ex-bg:#DAD4C8;
+  --ex-text:#4a4536;
+  --c1:#6B3FA0;
+  --c2:#2F5FA8;
+  --c3:#1E8E8E;
+  --c4:#3E9142;
+  --c5:#D6A417;
+  --c6:#D9722A;
+  --c7:#B23A3A;
 }
 
 body{
   font-family:var(--font-stack);
-  background:var(--ground);
-  background-image:var(--grain);
-  color:var(--ex-text);
-  line-height:1.5;
+  background:var(--bg);
+  color:var(--ink);
+  padding:48px 20px 80px;
   -webkit-font-smoothing:antialiased;
 }
 
 .iso-ground{
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  padding:clamp(1rem,2vw,3rem);
-  min-height:100vh;
+  max-width:920px;
+  margin:0 auto;
 }
 
 .stack-header{
   text-align:center;
-  margin-bottom:clamp(1.5rem,3vw,2.5rem);
-  max-width:700px;
+  max-width:640px;
+  margin:0 auto 56px;
+}
+
+.stack-header .eyebrow{
+  font-size:15px;
+  letter-spacing:0.02em;
+  color:#8a7a5c;
+  margin-bottom:6px;
 }
 
 .stack-header h1{
-  font:900 clamp(1.75rem,3vw,2.75rem) var(--font-stack);
-  color:#2a2a2a;
-  letter-spacing:-.02em;
-  margin-bottom:.5rem;
+  font-size:clamp(32px,5vw,48px);
+  margin:0 0 14px;
+  font-weight:800;
 }
 
 .stack-header p{
-  font:400 clamp(.9rem,1.1vw,1.05rem) var(--font-stack);
-  color:#6b6560;
-  max-width:50ch;
-  margin:0 auto;
+  font-size:17px;
+  line-height:1.5;
+  color:#55503f;
 }
 
 .iso-stack{
   display:flex;
   flex-direction:column;
   gap:var(--gap-row);
-  width:100%;
-  max-width:1100px;
 }
 
 .layer-row{
   display:grid;
-  grid-template-columns:72px 1fr 220px;
+  grid-template-columns:90px 1fr 200px;
   gap:var(--gap-row);
-  min-height:96px;
   align-items:stretch;
 }
 
 .num-tile{
+  background:var(--color);
+  border-radius:var(--r);
   display:flex;
   align-items:center;
   justify-content:center;
-  background:var(--accent);
-  background-image:var(--highlight);
   color:#fff;
-  font:900 clamp(1.5rem,2vw,2.25rem) var(--font-stack);
-  border-radius:var(--r);
-  box-shadow:var(--shadow);
-  aspect-ratio:1;
-  align-self:center;
+  font-size:42px;
+  font-weight:800;
+  box-shadow:2px 2px 0 var(--shadow-strong);
+  background-image:var(--highlight);
 }
 
 .main-block{
-  display:flex;
-  align-items:center;
-  gap:1rem;
-  background:var(--accent);
-  background-image:var(--highlight);
+  background:var(--color);
   border-radius:var(--r);
-  box-shadow:var(--shadow);
-  padding:1rem 1.25rem;
-  overflow:hidden;
-}
-
-.block-text{
-  flex:1;
-  min-width:0;
-}
-
-.block-title{
-  font:800 clamp(.95rem,1.2vw,1.3rem) var(--font-stack);
-  text-transform:uppercase;
-  color:#fff;
-  letter-spacing:.04em;
-  margin:0 0 .25rem;
-  text-shadow:0 1px 2px rgba(0,0,0,.18);
-}
-
-.block-desc{
-  font:400 clamp(.8rem,.9vw,.95rem) var(--font-stack);
-  color:rgba(255,255,255,.88);
-  margin:0;
-  line-height:1.45;
-  max-width:48ch;
-}
-
-.icon-tray{
-  display:flex;
-  gap:.6rem;
-  align-items:center;
-  background:var(--accent-dark);
-  border-radius:var(--r-sm);
-  padding:.6rem .8rem;
-  flex-shrink:0;
-}
-
-.icon-tray svg{
-  width:32px;
-  height:32px;
-  fill:#fff;
-  filter:drop-shadow(0 1px 1px rgba(0,0,0,.15));
-}
-
-.ex-tile{
+  padding:18px 22px;
+  box-shadow:2px 2px 0 var(--shadow-strong);
+  background-image:var(--highlight);
   display:flex;
   flex-direction:column;
   justify-content:center;
+  gap:10px;
+}
+
+.block-title{
+  color:#fff;
+  font-size:22px;
+  font-weight:800;
+  letter-spacing:0.01em;
+  margin:0;
+}
+
+.block-desc{
+  color:rgba(255,255,255,0.9);
+  font-size:14px;
+  line-height:1.4;
+  margin:0;
+  max-width:46ch;
+}
+
+.icon-tray{
+  background:rgba(0,0,0,0.14);
+  border-radius:var(--r-sm);
+  padding:8px 12px;
+  display:flex;
+  gap:14px;
+  align-items:center;
+  width:fit-content;
+}
+
+.icon-tray span{
+  font-size:22px;
+  filter:drop-shadow(1px 2px 0 rgba(0,0,0,0.25));
+}
+
+.ex-tile{
   background:var(--ex-bg);
-  background-image:var(--highlight);
   border-radius:var(--r);
-  box-shadow:var(--shadow);
-  padding:1rem 1.1rem;
+  padding:16px 18px;
+  box-shadow:2px 2px 0 var(--shadow-light);
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
 }
 
 .ex-label{
-  font:700 .8rem var(--font-stack);
-  color:var(--accent);
-  text-transform:uppercase;
-  letter-spacing:.03em;
-  margin-bottom:.3rem;
+  color:var(--color);
+  font-weight:800;
+  font-size:13px;
+  margin:0 0 6px;
 }
 
 .ex-list{
-  font:400 .85rem var(--font-stack);
+  font-size:13px;
   color:var(--ex-text);
-  line-height:1.4;
+  line-height:1.5;
+  margin:0;
 }
 
 .base-plate{
-  width:100%;
-  max-width:1100px;
-  height:18px;
-  background:var(--base-plate);
-  border-radius:0 0 var(--r) var(--r);
-  box-shadow:var(--shadow);
-  margin-top:calc(var(--gap-row) * -1);
-}
-
-.layer-row:active{
-  box-shadow:0 1px 2px rgba(0,0,0,.08);
-  transform:translateY(1px);
+  max-width:920px;
+  margin:10px auto 0;
+  background:var(--ground);
+  border-radius:20px;
+  height:46px;
+  box-shadow:2px 2px 0 rgba(30,24,14,0.15);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:13px;
+  letter-spacing:0.08em;
+  color:#6b6350;
 }
 
 *:focus-visible{
-  outline:3px solid var(--c2-light);
+  outline:3px solid var(--c2);
   outline-offset:3px;
 }
 
 @media(max-width:992px){
   .layer-row{
-    grid-template-columns:56px 1fr;
+    grid-template-columns:60px 1fr;
+    grid-template-areas:
+      "num main"
+      "ex ex";
   }
-  .ex-tile{
-    grid-column:1 / -1;
-  }
-  .num-tile{
-    font-size:1.3rem;
-  }
+  .num-tile{grid-area:num;font-size:28px;border-radius:12px}
+  .main-block{grid-area:main;border-radius:12px;padding:14px 16px}
+  .ex-tile{grid-area:ex;border-radius:12px}
 }
 
 @media(max-width:576px){
   .layer-row{
     grid-template-columns:1fr;
+    grid-template-areas:
+      "num"
+      "main"
+      "ex";
   }
   .num-tile{
-    width:48px;
-    height:48px;
-    aspect-ratio:1;
+    width:52px;
+    height:52px;
+    font-size:24px;
     justify-self:start;
-  }
-  .main-block{
-    flex-direction:column;
-    align-items:stretch;
   }
   .icon-tray{
     flex-wrap:wrap;
@@ -239,114 +225,84 @@ body{
 </style>
 </head>
 <body>
+
 <div class="iso-ground">
 
-  <div class="stack-header">
-    <h1>Shop Architecture</h1>
-    <p>The 7 layers of a modern e-commerce platform, from storefront to infrastructure</p>
-  </div>
+  <header class="stack-header">
+    <div class="eyebrow">7 layers</div>
+    <h1>The Shop Stack</h1>
+    <p>Every great e-commerce platform is a stack of specialized layers. Here's what powers a modern online shop, from infrastructure to storefront.</p>
+  </header>
 
   <div class="iso-stack" id="stack"></div>
-  <div class="base-plate"></div>
+  <div class="base-plate">BUILT &amp; SHIPPED — ONE LAYER AT A TIME</div>
 
 </div>
 
 <script>
-const ICONS = {
-  monitor: '<svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm4 16h8m-4-4v4"/><rect x="2" y="4" width="20" height="14" rx="2" fill="none" stroke="#fff" stroke-width="1.7"/><line x1="8" y1="20" x2="16" y2="20" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/><line x1="12" y1="18" x2="12" y2="20" stroke="#fff" stroke-width="1.7"/></svg>',
-  palette: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="8" cy="9" r="1.5" fill="#fff"/><circle cx="15" cy="9" r="1.5" fill="#fff"/><circle cx="9" cy="14" r="1.5" fill="#fff"/><path d="M16.5 14.5c0 1.38-1.79 2.5-4 2.5"/></svg>',
-  layout: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="21"/></svg>',
-  lock: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/><circle cx="12" cy="16" r="1" fill="#fff"/></svg>',
-  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 4v5c0 5.25-3.5 9.74-7 11-3.5-1.26-7-5.75-7-11V6l7-4z"/><polyline points="9 12 11 14 15 10"/></svg>',
-  key: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round"><circle cx="8" cy="15" r="5"/><path d="M14.5 9.5L21 3m-3 0l3 3m-5 2l2 2"/></svg>',
-  tag: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
-  search: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>',
-  grid: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
-  cart: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>',
-  creditcard: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg>',
-  receipt: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2V2l-3 2-3-2-3 2-3-2-3 2z"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="14" y2="12"/></svg>',
-  box: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
-  truck: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 4v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
-  warehouse: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l9-6 9 6v12"/><rect x="7" y="13" width="4" height="8"/><rect x="13" y="13" width="4" height="4"/></svg>',
-  chart: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>',
-  piechart: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>',
-  users: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
-  database: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4.03 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/></svg>',
-  server: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>',
-  zap: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>'
-};
-
-const layers = [
+var layers = [
   {
-    number: 1,
-    title: 'Presentation Layer',
-    description: 'Storefront UI, Blade templates, responsive layouts, and customer-facing pages rendered server-side with XSS-safe output.',
-    icons: [ICONS.monitor, ICONS.palette, ICONS.layout],
-    examples: ['Product Pages', 'Cart View', 'Checkout Form', 'Search Results']
+    title: 'STOREFRONT',
+    description: 'Customer-facing UI rendered server-side with XSS-safe Blade templates, responsive layouts, and accessible navigation.',
+    icons: ['\uD83D\uDDA5\uFE0F', '\uD83C\uDFA8', '\uD83D\uDCC4'],
+    examples: ['Product Pages', 'Cart View', 'Checkout Form', 'Search']
   },
   {
-    number: 2,
-    title: 'Auth & Security',
-    description: 'User authentication, session management, CSRF protection, RBAC role checks, and hardened cookie handling.',
-    icons: [ICONS.lock, ICONS.shield, ICONS.key],
-    examples: ['Login / Register', 'CSRF Tokens', 'Role Gates', 'Session Regen']
+    title: 'AUTH & SECURITY',
+    description: 'User login, session management, CSRF protection, RBAC role gates, and hardened cookie handling.',
+    icons: ['\uD83D\uDD12', '\uD83D\uDEE1\uFE0F', '\uD83D\uDD11'],
+    examples: ['Login / Register', 'CSRF Tokens', 'Role Gates', 'Sessions']
   },
   {
-    number: 3,
-    title: 'Product Catalog',
-    description: 'Product models, category trees, search indexing, filters, and inventory availability with eager-loaded relations.',
-    icons: [ICONS.tag, ICONS.search, ICONS.grid],
+    title: 'PRODUCT CATALOG',
+    description: 'Product models, category trees, faceted search, variant management, and eager-loaded relations.',
+    icons: ['\uD83C\uDFF7\uFE0F', '\uD83D\uDD0D', '\uD83D\uDCE6'],
     examples: ['Categories', 'SKU Lookup', 'Faceted Search', 'Variants']
   },
   {
-    number: 4,
-    title: 'Cart & Checkout',
-    description: 'Shopping cart state, coupon application, payment gateway integration, order creation inside atomic transactions.',
-    icons: [ICONS.cart, ICONS.creditcard, ICONS.receipt],
-    examples: ['Add to Cart', 'Stripe / PayPal', 'Discount Codes', 'Order Review']
+    title: 'CART & CHECKOUT',
+    description: 'Shopping cart state, coupon engine, payment gateway integration, and atomic order transactions.',
+    icons: ['\uD83D\uDED2', '\uD83D\uDCB3', '\uD83E\uDDFE'],
+    examples: ['Add to Cart', 'Stripe / PayPal', 'Coupons', 'Order Review']
   },
   {
-    number: 5,
-    title: 'Inventory & Fulfillment',
-    description: 'Stock level tracking, warehouse allocation, shipping rate calculation, and dispatch event triggers for logistics.',
-    icons: [ICONS.box, ICONS.truck, ICONS.warehouse],
-    examples: ['Stock Sync', 'Shipment Tracking', 'Warehouse Routing', 'Returns']
+    title: 'INVENTORY & FULFILLMENT',
+    description: 'Stock tracking, warehouse allocation, shipping rate calculation, and dispatch event triggers.',
+    icons: ['\uD83D\uDCE6', '\uD83D\uDE9A', '\uD83C\uDFED'],
+    examples: ['Stock Sync', 'Shipment Tracking', 'Warehousing', 'Returns']
   },
   {
-    number: 6,
-    title: 'Analytics & Reporting',
-    description: 'Sales dashboards, conversion funnels, customer behavior metrics, and daily revenue aggregation queries.',
-    icons: [ICONS.chart, ICONS.piechart, ICONS.users],
+    title: 'ANALYTICS & REPORTING',
+    description: 'Sales dashboards, conversion funnels, customer lifetime value metrics, and revenue aggregation.',
+    icons: ['\uD83D\uDCCA', '\uD83D\uDCC8', '\uD83D\uDC65'],
     examples: ['Sales Reports', 'Funnel Analysis', 'Customer LTV', 'A/B Tests']
   },
   {
-    number: 7,
-    title: 'Infrastructure',
-    description: 'MySQL via QueryBuilder, tagged Redis cache, async job queue, daily log rotation, and OPcache optimization.',
-    icons: [ICONS.database, ICONS.server, ICONS.zap],
+    title: 'INFRASTRUCTURE',
+    description: 'MySQL via QueryBuilder, tagged Redis cache, async job queue, log rotation, and OPcache tuning.',
+    icons: ['\uD83D\uDDC4\uFE0F', '\u26A1', '\uD83D\uDD27'],
     examples: ['MySQL / SQLite', 'Redis Cache', 'Job Queue', 'Health Checks']
   }
 ];
 
 function renderLayerStack(layers) {
-  const colors = ['c1','c2','c3','c4','c5','c6','c7'];
-  return layers.map((layer, i) => {
-    const c = colors[i % colors.length];
-    return `
-      <div class="layer-row" style="--accent:var(--${c});--accent-dark:var(--${c}-dark);--accent-light:var(--${c}-light)">
-        <div class="num-tile">${layer.number}</div>
-        <div class="main-block">
-          <div class="block-text">
-            <h3 class="block-title">${layer.title}</h3>
-            <p class="block-desc">${layer.description}</p>
-          </div>
-          <div class="icon-tray">${layer.icons.join('')}</div>
-        </div>
-        <div class="ex-tile">
-          <span class="ex-label">Examples:</span>
-          <span class="ex-list">${layer.examples.join(', ')}</span>
-        </div>
-      </div>`;
+  var colors = ['c1','c2','c3','c4','c5','c6','c7'];
+  var total = layers.length;
+  return layers.map(function(layer, i) {
+    var c = colors[i % colors.length];
+    var num = total - i;
+    return '<div class="layer-row" style="--color:var(--' + c + ')">' +
+      '<div class="num-tile">' + num + '</div>' +
+      '<div class="main-block">' +
+        '<p class="block-title">' + layer.title + '</p>' +
+        '<p class="block-desc">' + layer.description + '</p>' +
+        '<div class="icon-tray">' + layer.icons.map(function(ic) { return '<span>' + ic + '</span>'; }).join('') + '</div>' +
+      '</div>' +
+      '<div class="ex-tile">' +
+        '<p class="ex-label">Examples:</p>' +
+        '<p class="ex-list">' + layer.examples.join(', ') + '</p>' +
+      '</div>' +
+    '</div>';
   }).join('');
 }
 
