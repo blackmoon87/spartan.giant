@@ -45,8 +45,23 @@ final class QueryBuilderTest extends TestCase
 
     public function test_where_in_and_not_in(): void
     {
+        // Existing behavior preserved
         $this->assertCount(2, $this->table('t_users')->where('id', [1, 3])->get());
         $this->assertCount(1, $this->table('t_users')->where('id', [1, 3], 'NOT IN')->get());
+
+        // Dedicated helper methods
+        $this->assertCount(2, $this->table('t_users')->whereIn('id', [1, 3])->get());
+        $this->assertCount(1, $this->table('t_users')->whereNotIn('id', [1, 3])->get());
+
+        // OR variants
+        $this->assertCount(3, $this->table('t_users')->where('id', 1)->orWhereIn('id', [2, 3])->get());
+        $this->assertCount(2, $this->table('t_users')->where('id', 1)->orWhereNotIn('id', [1, 2])->get());
+
+        // Empty array safe handling (no SQL syntax crash)
+        $this->assertCount(0, $this->table('t_users')->whereIn('id', [])->get());
+        $this->assertCount(3, $this->table('t_users')->whereNotIn('id', [])->get());
+        $this->assertCount(0, $this->table('t_users')->where('id', [])->get());
+        $this->assertCount(3, $this->table('t_users')->where('id', [], 'NOT IN')->get());
     }
 
     public function test_chained_wheres_are_anded(): void
@@ -241,5 +256,86 @@ final class QueryBuilderTest extends TestCase
         $row = $this->table('t_users')->where('email', 'null@example.com')->first();
 
         $this->assertNull($row['score']);
+    }
+
+    public function test_where_null_and_where_not_null(): void
+    {
+        $this->table('t_users')->insert(['name' => 'NoScore', 'email' => 'noscore@example.com', 'score' => null]);
+
+        $this->assertCount(1, $this->table('t_users')->whereNull('score')->get());
+        $this->assertCount(3, $this->table('t_users')->whereNotNull('score')->get());
+
+        // where('col', null) auto-conversion to IS NULL
+        $this->assertCount(1, $this->table('t_users')->where('score', null)->get());
+        $this->assertCount(3, $this->table('t_users')->where('score', null, '!=')->get());
+
+        // OR variants
+        $this->assertCount(2, $this->table('t_users')->where('id', 1)->orWhereNull('score')->get());
+        $this->assertCount(3, $this->table('t_users')->where('id', 1)->orWhereNotNull('score')->get());
+    }
+
+    public function test_where_between_and_where_not_between(): void
+    {
+        $this->assertCount(2, $this->table('t_users')->whereBetween('score', [50, 75])->get());
+        $this->assertCount(1, $this->table('t_users')->whereNotBetween('score', [50, 75])->get());
+        $this->assertCount(3, $this->table('t_users')->where('id', 1)->orWhereBetween('score', [50, 80])->get());
+    }
+
+    public function test_nested_closure_where_grouping(): void
+    {
+        $rows = $this->table('t_users')
+            ->where('active', 1)
+            ->where(function (QueryBuilder $q) {
+                $q->where('role', 'admin')->orWhere('score', 80, '>');
+            })
+            ->get();
+
+        $this->assertCount(1, $rows);
+        $this->assertSame('Ada', $rows[0]['name']);
+    }
+
+    public function test_multi_order_by(): void
+    {
+        $rows = $this->table('t_users')
+            ->orderBy('active', 'DESC')
+            ->orderBy('score', 'ASC')
+            ->get();
+
+        $this->assertCount(3, $rows);
+    }
+
+    public function test_pluck(): void
+    {
+        $names = $this->table('t_users')->orderBy('id')->pluck('name');
+        $this->assertSame(['Ada', 'Linus', 'Grace'], $names);
+
+        $keyed = $this->table('t_users')->orderBy('id')->pluck('name', 'id');
+        $this->assertSame(['1' => 'Ada', '2' => 'Linus', '3' => 'Grace'], $keyed);
+    }
+
+    public function test_chunk_and_cursor(): void
+    {
+        $collected = [];
+        $this->table('t_users')->orderBy('id')->chunk(2, function (array $rows, int $page) use (&$collected) {
+            foreach ($rows as $row) {
+                $collected[] = $row['name'];
+            }
+        });
+        $this->assertSame(['Ada', 'Linus', 'Grace'], $collected);
+
+        $streamed = [];
+        foreach ($this->table('t_users')->orderBy('id')->cursor() as $row) {
+            $streamed[] = $row['name'];
+        }
+        $this->assertSame(['Ada', 'Linus', 'Grace'], $streamed);
+    }
+
+    public function test_increment_and_decrement(): void
+    {
+        $this->table('t_users')->where('id', 1)->increment('score', 5);
+        $this->assertSame(95, (int) $this->table('t_users')->where('id', 1)->first()['score']);
+
+        $this->table('t_users')->where('id', 1)->decrement('score', 10);
+        $this->assertSame(85, (int) $this->table('t_users')->where('id', 1)->first()['score']);
     }
 }

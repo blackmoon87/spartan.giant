@@ -35,8 +35,7 @@ class QueryBuilder
     private array   $joins     = [];        // ['type'=>'INNER|LEFT|RIGHT', 'table'=>'t', 'first'=>'a', 'second'=>'b']
     private array   $bindings  = [];
 
-    private ?string $orderCol  = null;
-    private string  $orderDir  = 'ASC';
+    private array   $orderBys  = [];        // [['column' => string, 'dir' => string], ...]
     private ?int    $limitVal  = null;
     private ?int    $offsetVal = null;
 
@@ -118,20 +117,128 @@ class QueryBuilder
     }
 
     /**
-     * Add an AND WHERE condition.
-     * Supported operators: =, !=, <>, <, >, <=, >=, LIKE, NOT LIKE, IN, NOT IN
+     * Add an AND WHERE condition or nested closure condition.
+     * Supported operators: =, !=, <>, <, >, <=, >=, LIKE, NOT LIKE, IN, NOT IN, IS, IS NOT
      */
-    public function where(string $column, mixed $value, string $operator = '='): static
+    public function where(string|\Closure $column, mixed $value = null, string $operator = '='): static
     {
         return $this->addWhere('AND', $column, $value, $operator);
     }
 
     /**
-     * Add an OR WHERE condition.
+     * Add an AND WHERE IN condition.
      */
-    public function orWhere(string $column, mixed $value, string $operator = '='): static
+    public function whereIn(string $column, array $values): static
+    {
+        return $this->addWhere('AND', $column, $values, 'IN');
+    }
+
+    /**
+     * Add an AND WHERE NOT IN condition.
+     */
+    public function whereNotIn(string $column, array $values): static
+    {
+        return $this->addWhere('AND', $column, $values, 'NOT IN');
+    }
+
+    /**
+     * Add an AND WHERE NULL condition.
+     */
+    public function whereNull(string $column): static
+    {
+        return $this->addNull('AND', $column, false);
+    }
+
+    /**
+     * Add an AND WHERE NOT NULL condition.
+     */
+    public function whereNotNull(string $column): static
+    {
+        return $this->addNull('AND', $column, true);
+    }
+
+    /**
+     * Add an AND WHERE BETWEEN condition.
+     *
+     * @param string $column
+     * @param array<mixed> $values Array of exactly 2 elements [min, max]
+     */
+    public function whereBetween(string $column, array $values): static
+    {
+        return $this->addBetween('AND', $column, $values, false);
+    }
+
+    /**
+     * Add an AND WHERE NOT BETWEEN condition.
+     *
+     * @param string $column
+     * @param array<mixed> $values Array of exactly 2 elements [min, max]
+     */
+    public function whereNotBetween(string $column, array $values): static
+    {
+        return $this->addBetween('AND', $column, $values, true);
+    }
+
+    /**
+     * Add an OR WHERE condition or nested closure condition.
+     */
+    public function orWhere(string|\Closure $column, mixed $value = null, string $operator = '='): static
     {
         return $this->addWhere('OR', $column, $value, $operator);
+    }
+
+    /**
+     * Add an OR WHERE IN condition.
+     */
+    public function orWhereIn(string $column, array $values): static
+    {
+        return $this->addWhere('OR', $column, $values, 'IN');
+    }
+
+    /**
+     * Add an OR WHERE NOT IN condition.
+     */
+    public function orWhereNotIn(string $column, array $values): static
+    {
+        return $this->addWhere('OR', $column, $values, 'NOT IN');
+    }
+
+    /**
+     * Add an OR WHERE NULL condition.
+     */
+    public function orWhereNull(string $column): static
+    {
+        return $this->addNull('OR', $column, false);
+    }
+
+    /**
+     * Add an OR WHERE NOT NULL condition.
+     */
+    public function orWhereNotNull(string $column): static
+    {
+        return $this->addNull('OR', $column, true);
+    }
+
+    /**
+     * Add an OR WHERE BETWEEN condition.
+     *
+     * @param string $column
+     * @param array<mixed> $values Array of exactly 2 elements [min, max]
+     */
+    public function orWhereBetween(string $column, array $values): static
+    {
+        return $this->addBetween('OR', $column, $values, false);
+    }
+
+    /**
+     * Add an OR WHERE NOT BETWEEN condition.
+     *
+     * @param string $column
+     * @param array<mixed> $values Array of exactly 2 elements [min, max]
+     */
+    public function orWhereNotBetween(string $column, array $values): static
+    {
+        return $this->addBetween('OR', $column, $values, true);
     }
 
     /**
@@ -180,12 +287,12 @@ class QueryBuilder
     }
 
     /**
-     * Add an ORDER BY clause.
+     * Add an ORDER BY clause. Can be chained for multiple sort columns.
      */
     public function orderBy(string $column, string $direction = 'ASC'): static
     {
-        $this->orderCol = $column;
-        $this->orderDir = strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC';
+        $dir = strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC';
+        $this->orderBys[] = ['column' => $column, 'dir' => $dir];
         return $this;
     }
 
@@ -316,11 +423,169 @@ class QueryBuilder
     }
 
     /**
-     * Return true if at least one matching row exists.
+     * Return true if at least one matching row exists (optimized O(1) query).
      */
     public function exists(): bool
     {
-        return $this->count() > 0;
+        $clone = clone $this;
+        $clone->selects   = ['1'];
+        $clone->limitVal  = 1;
+        $clone->offsetVal = null;
+        $clone->orderBys  = [];
+        [$sql, $bindings] = $clone->buildSelect();
+        $stmt = $clone->execute($sql, $bindings);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    /**
+     * Pluck a single column's values, optionally keyed by another column.
+     *
+     * @param string $column
+     * @param string|null $key
+     * @return array<mixed>
+     */
+    public function pluck(string $column, ?string $key = null): array
+    {
+        $selectCols = $key !== null ? [$column, $key] : [$column];
+        $this->select(...$selectCols);
+        $rows = $this->get();
+        if (empty($rows)) {
+            return [];
+        }
+
+        $colKey = str_contains($column, '.') ? substr(strrchr($column, '.') ?: '', 1) : $column;
+        $kKey   = ($key !== null && str_contains($key, '.')) ? substr(strrchr($key, '.') ?: '', 1) : $key;
+
+        $results = [];
+        foreach ($rows as $row) {
+            $val = $row[$colKey] ?? $row[$column] ?? null;
+            if ($key !== null) {
+                $k = (string) ($row[$kKey] ?? $row[$key] ?? '');
+                $results[$k] = $val;
+            } else {
+                $results[] = $val;
+            }
+        }
+        return $results;
+    }
+
+    /**
+     * Chunk results in batches and pass each batch to a callback.
+     * Memory-safe for processing large datasets.
+     *
+     * @param int $count
+     * @param callable(array<array<string, mixed>>, int): (bool|void) $callback
+     * @return bool
+     */
+    public function chunk(int $count, callable $callback): bool
+    {
+        if ($count < 1) {
+            throw new \InvalidArgumentException('chunk() count must be >= 1.');
+        }
+
+        $page = 1;
+        do {
+            $clone = clone $this;
+            $clone->limitVal  = $count;
+            $clone->offsetVal = ($page - 1) * $count;
+            $results = $clone->get();
+            $countResults = count($results);
+
+            if ($countResults === 0) {
+                break;
+            }
+
+            if ($callback($results, $page) === false) {
+                return false;
+            }
+
+            unset($results);
+            $page++;
+        } while ($countResults === $count);
+
+        return true;
+    }
+
+    /**
+     * Stream results row by row using a PDO cursor (memory-safe O(1) RAM).
+     *
+     * @return \Generator<int, array<string, mixed>>
+     */
+    public function cursor(): \Generator
+    {
+        [$sql, $bindings] = $this->buildSelect();
+        $stmt = $this->execute($sql, $bindings);
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            yield $row;
+        }
+    }
+
+    /**
+     * Atomically increment a column's value by an amount.
+     *
+     * @param string $column
+     * @param int|float $amount
+     * @param array<string, mixed> $extra Additional column values to update
+     * @return int Number of affected rows
+     */
+    public function increment(string $column, int|float $amount = 1, array $extra = []): int
+    {
+        if (empty($this->wheres)) {
+            throw new \LogicException(
+                "increment() requires at least one where() condition to prevent accidental full-table updates."
+            );
+        }
+
+        $col = $this->dialect->quoteIdentifier($column);
+        $setClauses = ["{$col} = {$col} + ?"];
+        $bindings = [$amount];
+
+        foreach ($extra as $extraCol => $extraVal) {
+            $setClauses[] = $this->dialect->quoteIdentifier($extraCol) . ' = ?';
+            $bindings[]   = $extraVal;
+        }
+
+        [$whereSQL, $whereBindings] = $this->buildWhere();
+        $setSQL = implode(', ', $setClauses);
+        $sql = "UPDATE " . $this->dialect->quoteTable($this->table) . " SET {$setSQL}{$whereSQL}";
+        $allBindings = array_merge($bindings, $whereBindings);
+
+        $stmt = $this->execute($sql, $allBindings);
+        return $stmt->rowCount();
+    }
+
+    /**
+     * Atomically decrement a column's value by an amount.
+     *
+     * @param string $column
+     * @param int|float $amount
+     * @param array<string, mixed> $extra Additional column values to update
+     * @return int Number of affected rows
+     */
+    public function decrement(string $column, int|float $amount = 1, array $extra = []): int
+    {
+        if (empty($this->wheres)) {
+            throw new \LogicException(
+                "decrement() requires at least one where() condition to prevent accidental full-table updates."
+            );
+        }
+
+        $col = $this->dialect->quoteIdentifier($column);
+        $setClauses = ["{$col} = {$col} - ?"];
+        $bindings = [$amount];
+
+        foreach ($extra as $extraCol => $extraVal) {
+            $setClauses[] = $this->dialect->quoteIdentifier($extraCol) . ' = ?';
+            $bindings[]   = $extraVal;
+        }
+
+        [$whereSQL, $whereBindings] = $this->buildWhere();
+        $setSQL = implode(', ', $setClauses);
+        $sql = "UPDATE " . $this->dialect->quoteTable($this->table) . " SET {$setSQL}{$whereSQL}";
+        $allBindings = array_merge($bindings, $whereBindings);
+
+        $stmt = $this->execute($sql, $allBindings);
+        return $stmt->rowCount();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -416,23 +681,79 @@ class QueryBuilder
     // Internal Builders
     // ─────────────────────────────────────────────────────────────────────────
 
-    private function addWhere(string $type, string $column, mixed $value, string $operator): static
+    private function addWhere(string $type, string|\Closure $column, mixed $value, string $operator): static
     {
+        if ($column instanceof \Closure) {
+            $nested = new self($this->db, $this->table);
+            $column($nested);
+            if (!empty($nested->wheres)) {
+                [$nestedSql, $nestedBindings] = $nested->buildWhere();
+                // Strip the leading ' WHERE ' prefix
+                $nestedSql = trim(substr($nestedSql, 6));
+                $this->wheres[] = ['type' => $type, 'sql' => "({$nestedSql})"];
+                $this->bindings = array_merge($this->bindings, $nestedBindings);
+            }
+            return $this;
+        }
+
         $operator = $this->normalizeOperator($operator);
+
+        // Handle NULL values safely as IS NULL / IS NOT NULL
+        if ($value === null) {
+            $isNot = in_array($operator, ['!=', '<>', 'IS NOT', 'NOT LIKE'], true);
+            return $this->addNull($type, $column, $isNot);
+        }
+
         $col = $this->escapeColumn($column);
 
         // Handle IN / NOT IN with array values
         if (is_array($value)) {
-            $placeholders = implode(', ', array_fill(0, count($value), '?'));
+            $values = array_values($value);
+            $count = count($values);
+
+            if ($count === 0) {
+                // Prevent SQL syntax errors on empty lists:
+                // IN () is always false (0 = 1), NOT IN () is always true (1 = 1)
+                $sql = ($operator === 'NOT IN') ? '1 = 1' : '0 = 1';
+                $this->wheres[] = ['type' => $type, 'sql' => $sql];
+                return $this;
+            }
+
+            $placeholders = implode(', ', array_fill(0, $count, '?'));
             $op  = ($operator === 'NOT IN') ? 'NOT IN' : 'IN';
             $sql = "{$col} {$op} ({$placeholders})";
             $this->wheres[]   = ['type' => $type, 'sql' => $sql];
-            $this->bindings   = array_merge($this->bindings, $value);
+            $this->bindings   = array_merge($this->bindings, $values);
         } else {
             $this->wheres[]   = ['type' => $type, 'sql' => "{$col} {$operator} ?"];
             $this->bindings[] = $value;
         }
 
+        return $this;
+    }
+
+    private function addNull(string $type, string $column, bool $not): static
+    {
+        $col = $this->escapeColumn($column);
+        $op  = $not ? 'IS NOT NULL' : 'IS NULL';
+        $this->wheres[] = ['type' => $type, 'sql' => "{$col} {$op}"];
+        return $this;
+    }
+
+    /**
+     * @param array<mixed> $values
+     */
+    private function addBetween(string $type, string $column, array $values, bool $not): static
+    {
+        if (count($values) !== 2) {
+            throw new \InvalidArgumentException('Between clause requires exactly 2 values [min, max].');
+        }
+        $values = array_values($values);
+        $col = $this->escapeColumn($column);
+        $op  = $not ? 'NOT BETWEEN' : 'BETWEEN';
+        $this->wheres[]   = ['type' => $type, 'sql' => "{$col} {$op} ? AND ?"];
+        $this->bindings[] = $values[0];
+        $this->bindings[] = $values[1];
         return $this;
     }
 
@@ -519,9 +840,12 @@ class QueryBuilder
             $sql     .= ' HAVING ' . implode(' AND ', $this->havings);
             $bindings = array_merge($bindings, $this->havingBindings);
         }
-        if ($this->orderCol !== null) {
-            $col  = $this->escapeColumn($this->orderCol);
-            $sql .= " ORDER BY {$col} {$this->orderDir}";
+        if (!empty($this->orderBys)) {
+            $orders = array_map(
+                fn($o) => $this->escapeColumn($o['column']) . ' ' . $o['dir'],
+                $this->orderBys
+            );
+            $sql .= " ORDER BY " . implode(', ', $orders);
         }
         if ($this->limitVal !== null) {
             $sql .= " LIMIT {$this->limitVal}";
