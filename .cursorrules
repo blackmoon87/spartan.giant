@@ -21,6 +21,8 @@ Custom lightweight PHP 8.1+ MVC framework. Zero external dependencies in core. C
 | `view()`, `request()`, `redirect()`, `env()`, `config()` helpers | Not defined — do not use |
 | Implicit table names or auto-resolved foreign keys | Always declare `$table`, `foreignKey`, and relation `as:` explicitly |
 | Third-party namespaces (Carbon, Illuminate, etc.) | Native PHP unless explicitly instructed |
+| DDL queries (`ALTER`, `CREATE`, `DROP`) inside Controllers | `database/migrations/` sequenced files via `php spartan migrate` |
+| Manual `session_write_close()` in Controllers | Spartan auto-releases session lock at end of `Application::run()` |
 
 ---
 
@@ -102,6 +104,18 @@ $this->request->isPost()
 
 Upload path: `Application::$app->config['storage']['uploads']` — never hardcode.
 
+```php
+// UploadedFile — safe Unicode/Arabic filename handling
+$file = $this->request->upload('document');  // returns UploadedFile or null
+if ($file && $file->isValid()) {
+    $file->getOriginalName();   // 'برسم المصحف.pdf' — full UTF-8 preserved
+    $file->hashName();          // 'a3f7c91b...8f1a.pdf' — safe random name
+    $file->sanitizedName();     // 'برسم_المصحف.pdf' — cleaned but readable
+    $file->store(Paths::storage('uploads'));
+}
+// Legacy: $this->request->file('key') still returns raw ?array
+```
+
 ---
 
 ## Models & QueryBuilder
@@ -146,10 +160,17 @@ $this->table('orders')
      ->select('orders.id', 'users.name')
      ->get();
 
-// Transactions
+// Transactions (auto commit/rollback)
 $this->transaction(function ($model) {
     $model->table('orders')->insert([...]);
     $model->table('invoices')->insert([...]);
+});
+
+// Global transactions (multi-model, no model instance needed)
+Database::transaction(function (\PDO $db) {
+    (new Order)->create([...]);
+    (new Invoice)->create([...]);
+    (new Notification)->create([...]);
 });
 
 // toArray
@@ -257,6 +278,13 @@ $app->router->excludeCsrf('/api/webhook', '/api/v1/*');
 
 // Method spoofing (forms are GET/POST only)
 // <input type="hidden" name="_method" value="DELETE">
+
+// Route redirects
+$app->router->redirect('/old-path', '/new-path');         // 302 temporary
+$app->router->redirect('/legacy', '/modern', 301);       // 301 permanent
+
+// Fallback handler (catches all unmatched routes before 404)
+$app->router->fallback([FallbackController::class, 'handle']);
 ```
 
 ---

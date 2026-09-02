@@ -168,7 +168,7 @@ class View implements ViewInterface
 
         $cacheEnabled = $viewsConfig['cache_enabled'] ?? false;
 
-        if ($cacheEnabled && file_exists($compiledPath)) {
+        if ($cacheEnabled && file_exists($compiledPath) && filemtime($sourcePath) <= filemtime($compiledPath)) {
             return $compiledPath;
         }
 
@@ -206,7 +206,14 @@ class View implements ViewInterface
         $content = preg_replace('/\{!!\s*(.+?)\s*!!\}/s', '<?php echo $1; ?>', $content);
         $content = preg_replace('/@extends\s*\((.*?)\)/', '<?php $this->extend($1); ?>', $content);
         // Inline section: @section('name', expression) — no @endsection needed
-        $content = preg_replace('/@section\s*\(\s*([\'"][^\'"]+[\'"])\s*,\s*(.+?)\s*\)\s*$/m', '<?php $this->sections[trim($1, "\'\\"")] = $2; ?>', $content);
+        // Uses callback to pre-compile any Blade output directives (e.g. @lang,
+        // {{ }}) found in the value to their PHP expression equivalents, preventing
+        // nested PHP open/close tags when @lang is processed later in the pipeline.
+        $content = preg_replace_callback(
+            '/@section\s*\(\s*([\'"][^\'"]+[\'"])\s*,\s*(.+?)\s*\)\s*$/m',
+            [$this, 'compileInlineSection'],
+            $content
+        );
         // Block section: @section('name') ... @endsection
         $content = preg_replace('/@section\s*\((.*?)\)/', '<?php $this->startSection($1); ?>', $content);
         $content = preg_replace('/@endsection/', '<?php $this->endSection(); ?>', $content);
@@ -267,6 +274,38 @@ class View implements ViewInterface
         $content = preg_replace('/@php(.*?)@endphp/s', '<?php $1 ?>', $content);
 
         return $content;
+    }
+
+    /**
+     * Compile an inline @section('name', expression) match.
+     *
+     * Pre-compiles Blade output directives (@lang, {{ }}) found in the value
+     * to their PHP expression equivalents so the later @lang compilation pass
+     * does not produce nested PHP open/close tags.
+     *
+     * @param  array $m  Regex match: [1] = quoted name, [2] = value expression
+     */
+    private function compileInlineSection(array $m): string
+    {
+        $name  = $m[1];
+        $value = $m[2];
+
+        // @lang('key') → expression form (not echo form)
+        $value = preg_replace(
+            '/@lang\s*\((.+?)\)/',
+            'htmlspecialchars(trans($1), ENT_QUOTES, \'UTF-8\')',
+            $value
+        );
+
+        // {{ $expr }} → expression form (not echo form)
+        $value = preg_replace(
+            '/\{\{\s*(.+?)\s*\}\}/',
+            'htmlspecialchars(($1) ?? \'\', ENT_QUOTES, \'UTF-8\')',
+            $value
+        );
+
+        $q = "'\"";
+        return '<?php $this->sections[trim(' . $name . ', "' . $q . '")] = ' . $value . '; ?' . '>';
     }
 
     /**

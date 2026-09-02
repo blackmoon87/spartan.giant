@@ -370,4 +370,20 @@ class Request
     {
         return $_FILES;
     }
+
+    /**
+     * Retrieve an uploaded file as an UploadedFile value object.
+     * Returns null if the key does not exist or no file was uploaded.
+     *
+     * Recommended over file() for Unicode/Arabic filename safety
+     * and cryptographic hash-based naming.
+     */
+    public function upload(string $key): ?UploadedFile
+    {
+        $data = $_FILES[$key] ?? null;
+        if ($data === null || ($data['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            return null;
+        }
+        return new UploadedFile($data);
+    }
 }

@@ -14,6 +14,9 @@ class Router
     protected array $middlewareAliases = [];
     protected array $globalMiddlewares = [];
 
+    /** @var array{callback: callable|array, middlewares: array}|null */
+    protected ?array $fallbackHandler = null;
+
     /** Memoised {param} -> regex compilations, keyed by route path. */
     protected array $patternCache = [];
 
@@ -140,6 +143,31 @@ class Router
     }
 
     /**
+     * Register a redirect from one path to another.
+     * Only GET requests are redirected; other methods should be handled explicitly.
+     */
+    public function redirect(string $from, string $to, int $status = 302): void
+    {
+        $response = $this->response;
+        $this->get($from, static function () use ($response, $to, $status): void {
+            $response->setStatusCode($status);
+            $response->redirect($to);
+        });
+    }
+
+    /**
+     * Register a fallback handler for unmatched routes.
+     * Executes instead of the default 404 page when no route matches.
+     */
+    public function fallback(callable|array $callback, array $middlewares = []): void
+    {
+        $this->fallbackHandler = [
+            'callback'    => $callback,
+            'middlewares' => $middlewares,
+        ];
+    }
+
+    /**
      * Resolve the current HTTP request to its registered callback or controller action.
      */
     public function resolve(): mixed
@@ -180,6 +208,12 @@ class Router
         }
 
         if ($routeData === false) {
+            if ($this->fallbackHandler !== null) {
+                if ($this->runMiddlewares($this->fallbackHandler['middlewares'])) {
+                    return $this->response;
+                }
+                return $this->executeCallback($this->fallbackHandler['callback'], []);
+            }
             $this->response->setStatusCode(404);
             return Application::$app->view->render('error_404', ['message' => 'The page you requested was not found.']);
         }

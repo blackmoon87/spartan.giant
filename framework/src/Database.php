@@ -96,4 +96,41 @@ class Database
     {
         self::$instance = $mock;
     }
+
+    /**
+     * Execute a callback within a database transaction.
+     *
+     * Automatically commits on success and rolls back on any Throwable.
+     * Safe for nesting: if already inside a transaction, the callback joins
+     * the outer one without opening a second BEGIN.
+     *
+     * Usage:
+     *   Database::transaction(function (\PDO $db) {
+     *       (new Order)->create([...]);
+     *       (new Invoice)->create([...]);
+     *   });
+     *
+     * @throws \Throwable Re-throws the original exception after rollback
+     */
+    public static function transaction(callable $callback): mixed
+    {
+        $db = self::getInstance();
+        $isOuter = !$db->inTransaction();
+        if ($isOuter) {
+            $db->beginTransaction();
+        }
+
+        try {
+            $result = $callback($db);
+            if ($isOuter) {
+                $db->commit();
+            }
+            return $result;
+        } catch (\Throwable $e) {
+            if ($isOuter && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            throw $e;
+        }
+    }
 }

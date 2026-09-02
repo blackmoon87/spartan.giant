@@ -126,6 +126,12 @@ class Application
         } finally {
             // Automatically clean flash messages at the end of execution
             $this->session->removeFlashMessages();
+
+            // Release the session file lock so concurrent requests from the
+            // same browser (AJAX polling, navigation) are never blocked.
+            if (method_exists($this->session, 'close')) {
+                $this->session->close();
+            }
         }
     }
 

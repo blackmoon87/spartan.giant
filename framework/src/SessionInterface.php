@@ -14,4 +14,10 @@ interface SessionInterface
     public function removeFlashMessages(): void;
     public function destroy(): void;
     public function regenerate(): void;
+
+    /**
+     * Persist and close the session, releasing its file lock.
+     * Called automatically at the end of the request lifecycle.
+     */
+    public function close(): void;
 }
