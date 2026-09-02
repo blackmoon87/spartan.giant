@@ -8,8 +8,9 @@ interface AuthInterface
 {
     /**
      * Get the authenticated user instance.
+     * Pass $fresh = true to bypass per-request identity cache and re-query the database.
      */
-    public function user(): ?object;
+    public function user(bool $fresh = false): ?object;
 
     /**
      * Get the authenticated user's ID.

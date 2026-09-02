@@ -163,4 +163,45 @@ final class ModelTest extends TestCase
         $this->assertTrue($this->model->beginTransaction());
         $this->assertTrue($this->model->rollBack());
     }
+
+    public function test_per_request_memoization_caches_and_invalidates(): void
+    {
+        UserModel::forgetMemoize();
+
+        $count = 0;
+        $getter = function () use (&$count): int {
+            return ++$count;
+        };
+
+        $r1 = UserModel::memoize('test_key', $getter);
+        $r2 = UserModel::memoize('test_key', $getter);
+
+        $this->assertSame(1, $r1);
+        $this->assertSame(1, $r2);
+        $this->assertSame(1, $count);
+
+        UserModel::forgetMemoize('t_users');
+
+        $r3 = UserModel::memoize('test_key', $getter);
+        $this->assertSame(1, $r3); // not prefixed with t_users:
+
+        UserModel::memoize('t_users:key1', $getter);
+        UserModel::forgetMemoize('t_users');
+
+        $r4 = UserModel::memoize('t_users:key1', $getter);
+        $this->assertSame(3, $r4);
+    }
+
+    public function test_fresh_refetches_model_instance_from_database(): void
+    {
+        $user = $this->model->findInstance(1);
+        $this->assertSame('Ada', $user->name);
+
+        // Mutate in database directly
+        $this->model->save(1, ['name' => 'Ada Lovelace']);
+
+        $freshUser = $user->fresh();
+        $this->assertInstanceOf(UserModel::class, $freshUser);
+        $this->assertSame('Ada Lovelace', $freshUser->name);
+    }
 }

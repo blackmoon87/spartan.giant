@@ -157,6 +157,54 @@ abstract class Model
     }
 
     /**
+     * Per-request in-memory memoization store.
+     * Maps query keys -> cached result arrays/objects for 0.00ms intra-request access.
+     */
+    protected static array $memoizedStore = [];
+
+    /**
+     * Memoize a calculation or query result for the duration of the current HTTP request.
+     * Re-uses the cached value on subsequent calls within the same request lifecycle (0.00ms).
+     */
+    public static function memoize(string $key, callable $callback): mixed
+    {
+        if (array_key_exists($key, self::$memoizedStore)) {
+            return self::$memoizedStore[$key];
+        }
+        return self::$memoizedStore[$key] = $callback();
+    }
+
+    /**
+     * Invalidate per-request memoized entries for a specific table, or purge the entire store.
+     */
+    public static function forgetMemoize(?string $table = null): void
+    {
+        if ($table === null) {
+            self::$memoizedStore = [];
+        } else {
+            foreach (array_keys(self::$memoizedStore) as $key) {
+                if (str_starts_with($key, $table . ':') || str_starts_with($key, $table . '.')) {
+                    unset(self::$memoizedStore[$key]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Re-fetch a fresh copy of the model instance directly from the database,
+     * bypassing any in-memory memoized state.
+     */
+    public function fresh(): ?static
+    {
+        $id = $this->attributes['id'] ?? null;
+        if ($id === null) {
+            return null;
+        }
+        self::forgetMemoize($this->getTable());
+        return $this->findInstance($id);
+    }
+
+    /**
      * Insert a new row, optionally auto-stamping created_at and updated_at.
      * Returns the last inserted ID.
      *
@@ -165,6 +213,10 @@ abstract class Model
      */
     public function create(array $data): string|false
     {
+        self::forgetMemoize($this->getTable());
+        if (isset(Application::$app) && isset(Application::$app->auth)) {
+            Application::$app->auth->forgetUser();
+        }
         if ($this->timestamps) {
             $now = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format(self::TS_FORMAT);
             $data['created_at'] ??= $now;
@@ -182,6 +234,13 @@ abstract class Model
      */
     public function save(int|string $id, array $data): int
     {
+        self::forgetMemoize($this->getTable());
+        if (isset(Application::$app) && isset(Application::$app->auth)) {
+            $currentUserId = Application::$app->auth->id();
+            if ((string)$currentUserId === (string)$id) {
+                Application::$app->auth->forgetUser();
+            }
+        }
         if ($this->timestamps) {
             $now = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format(self::TS_FORMAT);
             // Consistent with create(): an explicitly supplied timestamp wins.

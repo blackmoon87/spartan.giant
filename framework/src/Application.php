@@ -194,6 +194,8 @@ class Application
             $this->auth->forgetUser();
         }
 
+        Model::forgetMemoize();
+
         if (method_exists($this->view, 'resetState')) {
             $this->view->resetState();
         }

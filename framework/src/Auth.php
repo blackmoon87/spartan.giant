@@ -16,13 +16,18 @@ class Auth implements AuthInterface
 
     /**
      * Get the authenticated user instance.
+     * Pass $fresh = true to bypass in-memory identity cache and re-query the database.
      */
-    public function user(): ?object
+    public function user(bool $fresh = false): ?object
     {
+        if ($fresh) {
+            $this->user = null;
+        }
+
         $userId = $this->session->get('user_id');
         $cachedUserId = $this->user ? ($this->user->id ?? null) : null;
 
-        if ((string)$userId !== (string)$cachedUserId) {
+        if ($fresh || (string)$userId !== (string)$cachedUserId) {
             $this->user = null;
             if ($userId) {
                 $userClass = Application::$app->config['auth']['model'] ?? 'App\\Models\\User';
