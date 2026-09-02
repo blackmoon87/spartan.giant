@@ -33,24 +33,24 @@ if (PHP_SAPI !== 'cli') {
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
-$autoloadPath = __DIR__ . '/vendor/autoload.php';
-if (file_exists($autoloadPath)) {
-    require_once $autoloadPath;
-} else {
-    // Fallback PSR-4 autoloader (mirrors public/index.php)
-    spl_autoload_register(function (string $class): void {
-        $prefix  = 'App\\';
-        $baseDir = __DIR__ . '/src/';
-        $len     = strlen($prefix);
-        if (strncmp($prefix, $class, $len) !== 0) {
-            return;
-        }
-        $file = $baseDir . str_replace('\\', '/', substr($class, $len)) . '.php';
-        if (file_exists($file)) {
-            require_once $file;
-        }
-    });
+if (file_exists(__DIR__ . '/../../vendor/autoload.php')) {
+    require_once __DIR__ . '/../../vendor/autoload.php';
+} elseif (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require_once __DIR__ . '/vendor/autoload.php';
 }
+
+spl_autoload_register(function (string $class): void {
+    $prefix  = 'App\\';
+    $baseDir = __DIR__ . '/src/';
+    $len     = strlen($prefix);
+    if (strncmp($prefix, $class, $len) !== 0) {
+        return;
+    }
+    $file = $baseDir . str_replace('\\', '/', substr($class, $len)) . '.php';
+    if (file_exists($file)) {
+        require_once $file;
+    }
+});
 
 use Spartan\Application;
 use Spartan\JobQueue;
