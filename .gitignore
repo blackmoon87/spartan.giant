@@ -17,7 +17,8 @@
 *.log
 
 # Databases
-*.sqlite
+*.sqlite*
+examples/*/storage/*.sqlite*
 
 # OS
 .DS_Store
