@@ -18,6 +18,15 @@ class FileCacheDriver implements CacheDriverInterface
 {
     private string $cachePath;
 
+    /**
+     * One-entry memo of the last has()/read() result, so an immediate get()
+     * for the same key (the Cache::remember() pattern) reuses it instead of
+     * reading the file a second time. Cleared on any write to that key.
+     */
+    private ?string $lastReadKey = null;
+    private ?array $lastReadPayload = null;
+    private bool $lastReadValid = false;
+
     public function __construct(array $config)
     {
         $path = $config['path'] ?? \Spartan\Paths::storage('cache');
@@ -34,17 +43,32 @@ class FileCacheDriver implements CacheDriverInterface
         $expires = $ttl > 0 ? time() + $ttl : 0;
         $payload = serialize(['expires' => $expires, 'value' => $value]);
         file_put_contents($this->filePath($key), $payload, LOCK_EX);
+
+        if ($this->lastReadKey === $key) {
+            $this->lastReadValid = false;
+        }
     }
 
     public function get(string $key, mixed $default = null): mixed
     {
+        if ($this->lastReadValid && $this->lastReadKey === $key) {
+            $this->lastReadValid = false; // consume — a later get() re-reads
+            return $this->lastReadPayload === null ? $default : $this->lastReadPayload['value'];
+        }
+
         $payload = $this->read($this->filePath($key));
         return $payload === null ? $default : $payload['value'];
     }
 
     public function has(string $key): bool
     {
-        return $this->read($this->filePath($key)) !== null;
+        // Cached for an immediate get() right after — the Cache::remember()
+        // has()-then-get() pattern would otherwise read the same file twice.
+        $payload = $this->read($this->filePath($key));
+        $this->lastReadKey     = $key;
+        $this->lastReadPayload = $payload;
+        $this->lastReadValid   = true;
+        return $payload !== null;
     }
 
     /**
@@ -89,6 +113,10 @@ class FileCacheDriver implements CacheDriverInterface
             fwrite($handle, $new);
             fflush($handle);
 
+            if ($this->lastReadKey === $key) {
+                $this->lastReadValid = false;
+            }
+
             return [$value, $expires];
         } finally {
             flock($handle, LOCK_UN);
@@ -131,6 +159,9 @@ class FileCacheDriver implements CacheDriverInterface
         $file = $this->filePath($key);
         if (file_exists($file)) {
             unlink($file);
+        }
+        if ($this->lastReadKey === $key) {
+            $this->lastReadValid = false;
         }
     }
 
