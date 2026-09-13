@@ -59,6 +59,19 @@ class QueryBuilder
      */
     private static array $columnCache = [];
 
+    /**
+     * Prepared statements, keyed by connection (WeakMap) then by SQL string.
+     * Re-preparing identical SQL — the common case, since most queries in a
+     * request are structurally identical and only the bindings differ — is
+     * one of the more expensive steps in the query path. A WeakMap key means
+     * a closed/garbage-collected PDO takes its cached statements with it, so
+     * there is no stale-connection risk and nothing to invalidate manually.
+     */
+    private static ?\WeakMap $stmtCache = null;
+
+    /** Per-connection cap on cached statements (FIFO eviction beyond this). */
+    private const MAX_CACHED_STATEMENTS = 256;
+
     /** Cache bucket for this builder's dialect. */
     private string $dialectKey;
 
@@ -514,7 +527,15 @@ class QueryBuilder
     public function cursor(): \Generator
     {
         [$sql, $bindings] = $this->buildSelect();
-        $stmt = $this->execute($sql, $bindings);
+
+        // Deliberately NOT using the cached-statement path: a cursor's caller
+        // controls how much of the result set is ever fetched, and may abandon
+        // it mid-iteration. Handing out a shared cached statement here would let
+        // a later, unrelated query with the same SQL re-execute (and silently
+        // rewind) the very statement this generator is still reading from.
+        $stmt = $this->db->prepare($sql);
+        self::bindTyped($stmt, $bindings);
+        $stmt->execute();
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             yield $row;
         }
@@ -874,9 +895,36 @@ class QueryBuilder
 
     private function execute(string $sql, array $bindings): \PDOStatement
     {
-        $stmt = $this->db->prepare($sql);
+        $stmt = $this->prepareCached($sql);
         self::bindTyped($stmt, $bindings);
         $stmt->execute();
+        return $stmt;
+    }
+
+    /**
+     * Prepare a statement, reusing a cached PDOStatement for identical SQL on
+     * the same connection instead of re-preparing it.
+     */
+    private function prepareCached(string $sql): \PDOStatement
+    {
+        $cache = self::$stmtCache ??= new \WeakMap();
+        $perConnection = $cache[$this->db] ?? [];
+
+        if (isset($perConnection[$sql])) {
+            return $perConnection[$sql];
+        }
+
+        $stmt = $this->db->prepare($sql);
+
+        // Bound so callers that generate many distinct SQL strings (LIMIT/OFFSET
+        // are inlined rather than bound, so paginated queries vary the text)
+        // cannot grow this cache without limit.
+        if (count($perConnection) >= self::MAX_CACHED_STATEMENTS) {
+            array_shift($perConnection);
+        }
+        $perConnection[$sql] = $stmt;
+        $cache[$this->db] = $perConnection;
+
         return $stmt;
     }
 
