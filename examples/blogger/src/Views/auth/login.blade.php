@@ -7,7 +7,7 @@
         Access the Spartan Blogger Publishing Portal to draft and publish system articles.
     </p>
 
-    <form action="/login" method="POST">
+    <form action="{{ url('/login') }}" method="POST">
         @csrf
 
         <div style="margin-bottom: 1.25rem;">
@@ -27,13 +27,13 @@
     <div style="margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem; text-align: center;">
         <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.75rem;">Quick Demo One-Click Login:</p>
         <div style="display: flex; gap: 0.5rem; justify-content: center;">
-            <form action="/login" method="POST" style="display: inline;">
+            <form action="{{ url('/login') }}" method="POST" style="display: inline;">
                 @csrf
                 <input type="hidden" name="email" value="marcus@blogger.com">
                 <input type="hidden" name="password" value="password">
                 <button type="submit" class="btn" style="background: rgba(168,85,247,0.2); border: 1px solid var(--primary); font-size: 0.8rem; padding: 0.4rem 0.8rem;">Login as Author (Marcus)</button>
             </form>
-            <form action="/login" method="POST" style="display: inline;">
+            <form action="{{ url('/login') }}" method="POST" style="display: inline;">
                 @csrf
                 <input type="hidden" name="email" value="elena@blogger.com">
                 <input type="hidden" name="password" value="password">

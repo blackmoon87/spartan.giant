@@ -120,11 +120,11 @@
 <body>
     <header>
         <div class="nav-container">
-            <a href="/" class="logo">✍️ Spartan Blogger</a>
+            <a href="{{ url('/') }}" class="logo">✍️ Spartan Blogger</a>
             <nav>
                 <ul>
-                    <li><a href="/">Home</a></li>
-                    <li><a href="/author/posts" style="color: var(--primary); font-weight: 700;">Publishing Portal</a></li>
+                    <li><a href="{{ url('/') }}">Home</a></li>
+                    <li><a href="{{ url('/author/posts') }}" style="color: var(--primary); font-weight: 700;">Publishing Portal</a></li>
                 </ul>
             </nav>
         </div>

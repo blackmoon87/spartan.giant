@@ -9,7 +9,7 @@
         </div>
         
         <!-- Live HTMX Clap/Like Button -->
-        <button hx-post="/like/toggle" 
+        <button hx-post="{{ url('/like/toggle') }}" 
                 hx-vals='{"post_id": {{ $post->id }}, "_csrf": "{{ $_SESSION["_csrf_token"] ?? "" }}"}'
                 hx-swap="outerHTML" 
                 class="btn" 
@@ -30,7 +30,7 @@
     <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Subscribe to get the latest systems architecture & AI insights delivered straight to your inbox.</p>
     
     <div id="newsletter-form-container" style="max-width: 500px; margin: 0 auto;">
-        <form hx-post="/newsletter/subscribe" hx-target="#newsletter-form-container" hx-swap="innerHTML">
+        <form hx-post="{{ url('/newsletter/subscribe') }}" hx-target="#newsletter-form-container" hx-swap="innerHTML">
             @csrf
             <div style="display: flex; gap: 0.5rem;">
                 <input type="email" name="email" placeholder="Enter your email..." required style="flex: 1; padding: 0.75rem 1rem; background: rgba(9,13,22,0.8); border: 1px solid var(--border-color); border-radius: 8px; color: #fff; outline: none;">
@@ -53,11 +53,12 @@
     <!-- Post Comment Form with HTMX dynamic append -->
     <div style="margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
         <h4 style="margin-bottom: 1rem;">Leave a Comment</h4>
-        <form action="/comment/store" 
+        <form action="{{ url('/comment/store') }}" 
               method="POST" 
-              hx-post="/comment/store" 
+              hx-post="{{ url('/comment/store') }}" 
               hx-target="#comments-container" 
-              hx-swap="beforeend">
+              hx-swap="beforeend"
+              hx-on::after-request="if(event.detail.successful) this.reset()">
             @csrf
             <input type="hidden" name="post_id" value="{{ $post->id }}">
 

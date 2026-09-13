@@ -172,21 +172,22 @@ class View implements ViewInterface
             return $compiledPath;
         }
 
-        $debugMode = getenv('APP_DEBUG') === 'true' || ($_ENV['APP_DEBUG'] ?? 'false') === 'true';
-
-        if (!file_exists($compiledPath) || $debugMode || filemtime($sourcePath) > filemtime($compiledPath)) {
+        if (!file_exists($compiledPath) || filemtime($sourcePath) > filemtime($compiledPath)) {
             $content = file_get_contents($sourcePath);
             $compiledContent = $this->compileString($content);
 
-            // Compile atomically so a concurrent request can never `require`
-            // a partially written template.
-            $tmp = $compiledPath . '.' . getmypid() . '.tmp';
-            if (file_put_contents($tmp, $compiledContent, LOCK_EX) !== false && rename($tmp, $compiledPath)) {
+            // Compile atomically so a concurrent request can never `require` a partially written template.
+            $tmp = $compiledPath . '.' . getmypid() . '.' . bin2hex(random_bytes(4)) . '.tmp';
+            if (@file_put_contents($tmp, $compiledContent, LOCK_EX) !== false) {
+                if (!@rename($tmp, $compiledPath)) {
+                    // On Windows, if destination is open by another thread, copy fallback
+                    @copy($tmp, $compiledPath);
+                }
+                @unlink($tmp);
                 if (function_exists('opcache_invalidate')) {
                     @opcache_invalidate($compiledPath, true);
                 }
-            } else {
-                @unlink($tmp);
+            } elseif (!file_exists($compiledPath)) {
                 throw new \RuntimeException("Unable to write compiled view cache for [{$view}].");
             }
         }

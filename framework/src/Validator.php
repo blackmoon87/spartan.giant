@@ -68,8 +68,8 @@ class Validator
                     'alpha'     => $this->checkAlpha($field, $value),
                     'alpha_num' => $this->checkAlphaNum($field, $value),
                     'confirmed' => $this->checkConfirmed($field, $value, $data),
-                    'min'       => $this->checkMin($field, $value, (int) $param),
-                    'max'       => $this->checkMax($field, $value, (int) $param),
+                    'min'       => $this->checkMin($field, $value, (int) $param, $ruleList),
+                    'max'       => $this->checkMax($field, $value, (int) $param, $ruleList),
                     'in'        => $this->checkIn($field, $value, explode(',', (string) $param)),
                     'regex'     => $this->checkRegex($field, $value, (string) $param),
                     'unique'    => $this->checkUnique($field, $value, (string) $param),
@@ -124,7 +124,7 @@ class Validator
 
     private function checkInteger(string $field, mixed $value): void
     {
-        if ($value !== null && !ctype_digit((string) $value)) {
+        if ($value !== null && !filter_var($value, FILTER_VALIDATE_INT) && !ctype_digit((string) $value)) {
             $this->addError($field, "The {$field} field must be an integer.");
         }
     }
@@ -144,21 +144,33 @@ class Validator
         }
     }
 
-    private function checkMin(string $field, mixed $value, int $min): void
+    private function checkMin(string $field, mixed $value, int $min, array $ruleList = []): void
     {
         if ($value === null) return;
-        $check = is_numeric($value) ? (float) $value : mb_strlen((string) $value);
-        if ($check < $min) {
-            $this->addError($field, "The {$field} must be at least {$min}.");
+        $isNumeric = in_array('integer', $ruleList, true) || in_array('numeric', $ruleList, true);
+        if ($isNumeric && is_numeric($value)) {
+            if ((float) $value < $min) {
+                $this->addError($field, "The {$field} must be at least {$min}.");
+            }
+        } else {
+            if (mb_strlen((string) $value) < $min) {
+                $this->addError($field, "The {$field} must be at least {$min} characters.");
+            }
         }
     }
 
-    private function checkMax(string $field, mixed $value, int $max): void
+    private function checkMax(string $field, mixed $value, int $max, array $ruleList = []): void
     {
         if ($value === null) return;
-        $check = is_numeric($value) ? (float) $value : mb_strlen((string) $value);
-        if ($check > $max) {
-            $this->addError($field, "The {$field} may not exceed {$max}.");
+        $isNumeric = in_array('integer', $ruleList, true) || in_array('numeric', $ruleList, true);
+        if ($isNumeric && is_numeric($value)) {
+            if ((float) $value > $max) {
+                $this->addError($field, "The {$field} may not exceed {$max}.");
+            }
+        } else {
+            if (mb_strlen((string) $value) > $max) {
+                $this->addError($field, "The {$field} may not exceed {$max} characters.");
+            }
         }
     }
 

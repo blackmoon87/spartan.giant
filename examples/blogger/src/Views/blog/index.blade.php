@@ -13,7 +13,7 @@
     <div style="max-width: 500px; margin: 0 auto;">
         <input type="text" 
                name="query" 
-               hx-post="/blog/search" 
+               hx-post="{{ url('/blog/search') }}" 
                hx-trigger="keyup changed delay:250ms" 
                hx-target="#post-list-container" 
                hx-include="[name=_csrf]"
@@ -29,7 +29,7 @@
         <div class="glass-card" style="padding: 1.5rem;">
             <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem; color: var(--primary);">{{ $category['name'] }}</h3>
             <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">{{ $category['description'] }}</p>
-            <a href="/category/{{ $category['slug'] }}" style="color: var(--accent); text-decoration: none; font-size: 0.9rem; font-weight: 600;">Explore Articles &rarr;</a>
+            <a href="{{ url('/category/' . $category['slug']) }}" style="color: var(--accent); text-decoration: none; font-size: 0.9rem; font-weight: 600;">Explore Articles &rarr;</a>
         </div>
     @endforeach
 </div>

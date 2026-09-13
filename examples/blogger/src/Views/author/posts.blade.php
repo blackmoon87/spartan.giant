@@ -10,7 +10,7 @@
         <h3 style="margin-bottom: 1rem;">Published Articles ({{ count($posts) }})</h3>
         @foreach($posts as $p)
             <div style="border-bottom: 1px solid var(--border-color); padding: 1rem 0;">
-                <h4 style="font-size: 1.1rem; color: var(--text-primary);">{{ $p['title'] }}</h4>
+                <h4 style="font-size: 1.1rem; color: var(--text-primary);"><a href="{{ url('/post/' . $p['slug']) }}" style="color: inherit; text-decoration: none;">{{ $p['title'] }}</a></h4>
                 <p style="font-size: 0.85rem; color: var(--text-secondary);">Slug: /post/{{ $p['slug'] }} &bull; Views: {{ $p['views'] }}</p>
             </div>
         @endforeach
@@ -19,7 +19,7 @@
     <!-- Create Article Form -->
     <div class="glass-card">
         <h3 style="margin-bottom: 1rem;">Publish New Article</h3>
-        <form action="/author/posts/store" method="POST">
+        <form action="{{ url('/author/posts/store') }}" method="POST">
             @csrf
 
             <div style="margin-bottom: 1rem;">
