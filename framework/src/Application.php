@@ -56,6 +56,7 @@ class Application
         // Register the primary database connection config
         if (!empty($config['db'])) {
             $this->connections->addConnection('default', $config['db']);
+            $this->connections->setMaxLifetime($config['db']['max_lifetime'] ?? 3600);
 
             // Register read replicas when splitting is enabled
             if (($config['db']['read_write_split'] ?? false) === true) {
@@ -205,9 +206,14 @@ class Application
         // Reset translator loaded translations and re-read locale from session
         Translation\Translator::getInstance()->resetState();
 
-        // Close all database connections to prevent leaks in long-running workers
-        $this->connections->disconnectAll();
-        $this->dbInstance = null;
+        // Health-check open connections instead of tearing them all down: a
+        // dropped or over-age connection is recycled, but a healthy one is
+        // left exactly as-is. This is what keeps the database connection warm
+        // across requests in worker mode instead of reconnecting every time.
+        $this->connections->recycleStale();
+        if (!$this->connections->isConnected('default')) {
+            $this->dbInstance = null;
+        }
     }
 
     /**

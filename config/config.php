@@ -67,6 +67,9 @@ return [
         'database'   => $_ENV['DB_DATABASE']   ?? '',
         'username'   => $_ENV['DB_USERNAME']   ?? 'root',
         'password'   => $_ENV['DB_PASSWORD']   ?? '',
+        // Max age (seconds) a pooled connection may reach before it's recycled
+        // in worker mode (FrankenPHP/RoadRunner/Swoole). 0 disables the check.
+        'max_lifetime' => (int) ($_ENV['DB_MAX_LIFETIME'] ?? 3600),
         // Read/Write Splitting (opt-in — leave false for single-DB setups)
         'read_write_split' => ($_ENV['DB_READ_WRITE_SPLIT'] ?? 'false') === 'true',
         'read' => array_values(array_filter([
