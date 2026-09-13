@@ -23,6 +23,24 @@ class Router
     /** Memoised attribute scan results, keyed by "Class::method". */
     protected static array $authAttributeCache = [];
 
+    /**
+     * Dynamic ({placeholder}) routes bucketed by [method][first static segment].
+     * Lets resolve() test only the routes that could plausibly match the
+     * incoming path's first segment instead of scanning every dynamic route
+     * for the method.
+     */
+    protected array $dynamicBuckets = [];
+
+    /**
+     * Dynamic routes whose own first segment is itself a {placeholder} (e.g.
+     * "/{slug}") — there is no static prefix to bucket on, so these must be
+     * checked against every path regardless of its first segment.
+     */
+    protected array $wildcardBuckets = [];
+
+    /** Methods whose bucket index is currently built and valid. */
+    protected array $bucketsBuilt = [];
+
 
 
     public function __construct(Request $request, Response $response)
@@ -96,6 +114,7 @@ class Router
             'callback' => $callback,
             'middlewares' => $middlewares
         ];
+        unset($this->bucketsBuilt['GET']);
     }
 
     /**
@@ -107,6 +126,7 @@ class Router
             'callback'    => $callback,
             'middlewares' => $middlewares,
         ];
+        unset($this->bucketsBuilt['POST']);
     }
 
     /**
@@ -118,6 +138,7 @@ class Router
             'callback'    => $callback,
             'middlewares' => $middlewares,
         ];
+        unset($this->bucketsBuilt['PUT']);
     }
 
     /**
@@ -129,6 +150,7 @@ class Router
             'callback'    => $callback,
             'middlewares' => $middlewares,
         ];
+        unset($this->bucketsBuilt['PATCH']);
     }
 
     /**
@@ -140,6 +162,7 @@ class Router
             'callback'    => $callback,
             'middlewares' => $middlewares,
         ];
+        unset($this->bucketsBuilt['DELETE']);
     }
 
     /**
@@ -183,9 +206,23 @@ class Router
         // If direct match not found, try dynamic pattern matching.
         // Static routes are skipped — the exact-match lookup above already
         // ruled them out, so only routes carrying {placeholders} are scanned.
+        // Method + first-path-segment bucketing narrows that scan to just the
+        // dynamic routes that could plausibly match this path, instead of
+        // every dynamic route registered for the method.
         if ($routeData === false) {
-            foreach ($this->routes[$method] ?? [] as $routeKey => $data) {
-                if (!str_contains($routeKey, '{')) {
+            if (!isset($this->bucketsBuilt[$method])) {
+                $this->buildBuckets($method);
+            }
+
+            $firstSegment = explode('/', ltrim($path, '/'), 2)[0];
+            $candidates = array_merge(
+                $this->dynamicBuckets[$method][$firstSegment] ?? [],
+                $this->wildcardBuckets[$method] ?? []
+            );
+
+            foreach ($candidates as $routeKey) {
+                $data = $this->routes[$method][$routeKey] ?? null;
+                if ($data === null) {
                     continue;
                 }
 
@@ -249,6 +286,33 @@ class Router
 
         // Execute Callback
         return $this->executeCallback($routeData['callback'], $params);
+    }
+
+    /**
+     * Bucket a method's dynamic routes by their first static path segment.
+     * A route whose own first segment is a {placeholder} has no static
+     * prefix to key on and goes into the wildcard bucket instead, since it
+     * could match any incoming first segment.
+     */
+    protected function buildBuckets(string $method): void
+    {
+        $this->dynamicBuckets[$method]  = [];
+        $this->wildcardBuckets[$method] = [];
+
+        foreach ($this->routes[$method] ?? [] as $routeKey => $data) {
+            if (!str_contains($routeKey, '{')) {
+                continue;
+            }
+
+            $segment = explode('/', ltrim($routeKey, '/'), 2)[0];
+            if ($segment === '' || str_contains($segment, '{')) {
+                $this->wildcardBuckets[$method][] = $routeKey;
+            } else {
+                $this->dynamicBuckets[$method][$segment][] = $routeKey;
+            }
+        }
+
+        $this->bucketsBuilt[$method] = true;
     }
 
     /**
@@ -620,6 +684,7 @@ class Router
                 $this->middlewareGroups = $data['middlewareGroups'] ?? [];
                 $this->csrfExclusions = $data['csrfExclusions'] ?? [];
                 $this->patternCache = [];
+                $this->bucketsBuilt = [];
                 return true;
             }
         }
