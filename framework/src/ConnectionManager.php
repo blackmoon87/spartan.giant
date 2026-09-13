@@ -46,6 +46,24 @@ class ConnectionManager
     /** @var bool Whether read/write splitting is enabled */
     private bool $splitEnabled = false;
 
+    /** @var array<string, int> Unix timestamp each open connection was created, keyed by name */
+    private array $connectedAt = [];
+
+    /**
+     * Maximum age (seconds) a connection may reach before recycleStale()
+     * forces a reconnect on its next use. 0 disables the age check.
+     */
+    private int $maxLifetime = 3600;
+
+    /**
+     * @var array<int, int> Replica index → unix timestamp until which it is
+     * skipped after a failed connection attempt (failover cooldown).
+     */
+    private array $replicaDeadUntil = [];
+
+    /** Seconds a failed replica is skipped before being retried. */
+    private const REPLICA_COOLDOWN = 30;
+
     /**
      * Register a named connection configuration.
      * The connection is NOT opened until connection() is called.
@@ -81,6 +99,15 @@ class ConnectionManager
     public function enableSplit(bool $enabled = true): void
     {
         $this->splitEnabled = $enabled;
+    }
+
+    /**
+     * Set the maximum age (seconds) a connection may reach before
+     * recycleStale() forces a reconnect. 0 disables the age check.
+     */
+    public function setMaxLifetime(int $seconds): void
+    {
+        $this->maxLifetime = max(0, $seconds);
     }
 
     /**
@@ -127,6 +154,7 @@ class ConnectionManager
         }
 
         $this->connections[$name] = $this->createPdo($this->configs[$name]);
+        $this->connectedAt[$name] = time();
         return $this->connections[$name];
     }
 
@@ -151,7 +179,7 @@ class ConnectionManager
      */
     public function disconnect(string $name = 'default'): void
     {
-        unset($this->connections[$name]);
+        unset($this->connections[$name], $this->connectedAt[$name]);
     }
 
     /**
@@ -161,6 +189,46 @@ class ConnectionManager
     public function disconnectAll(): void
     {
         $this->connections = [];
+        $this->connectedAt = [];
+    }
+
+    /**
+     * Ping a single open connection with a trivial query.
+     * Returns false (without throwing) if the connection is closed, dropped,
+     * or not currently open.
+     */
+    public function ping(string $name = 'default'): bool
+    {
+        if (!isset($this->connections[$name])) {
+            return false;
+        }
+        try {
+            $this->connections[$name]->query('SELECT 1');
+            return true;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Health-check every open connection and recycle the ones that failed a
+     * ping or exceeded the configured max lifetime — a dropped/aged
+     * connection is closed so the next connection() call transparently
+     * reconnects. Healthy connections are left completely untouched, which
+     * is what keeps a worker-mode connection warm across requests instead of
+     * tearing every connection down after each one.
+     */
+    public function recycleStale(): void
+    {
+        $now = time();
+        foreach (array_keys($this->connections) as $name) {
+            $age = $now - ($this->connectedAt[$name] ?? $now);
+            $tooOld = $this->maxLifetime > 0 && $age >= $this->maxLifetime;
+
+            if ($tooOld || !$this->ping($name)) {
+                $this->disconnect($name);
+            }
+        }
     }
 
     /**
@@ -189,7 +257,10 @@ class ConnectionManager
 
     /**
      * Get or create a connection to a random read replica.
-     * Falls back to 'default' if no replicas are configured.
+     * Falls back to 'default' if no replicas are configured, if every
+     * replica is currently in its failure cooldown, or if connecting to the
+     * chosen replica fails outright — a down replica must never fail the
+     * request, only degrade it to reading from the primary.
      */
     private function getReadReplica(): PDO
     {
@@ -197,8 +268,18 @@ class ConnectionManager
             return $this->connection('default');
         }
 
-        // Pick a random replica for basic load distribution
-        $index = array_rand($this->readReplicas);
+        $now = time();
+        $healthy = array_filter(
+            array_keys($this->readReplicas),
+            fn($i) => ($this->replicaDeadUntil[$i] ?? 0) <= $now
+        );
+
+        if (empty($healthy)) {
+            return $this->connection('default');
+        }
+
+        // Pick a random healthy replica for basic load distribution
+        $index = $healthy[array_rand($healthy)];
         $replicaName = 'read_' . $index;
 
         if (isset($this->connections[$replicaName])) {
@@ -209,8 +290,15 @@ class ConnectionManager
         $baseConfig = $this->configs['default'] ?? [];
         $replicaConfig = array_merge($baseConfig, $this->readReplicas[$index]);
 
-        $this->connections[$replicaName] = $this->createPdo($replicaConfig);
-        return $this->connections[$replicaName];
+        try {
+            $this->connections[$replicaName] = $this->createPdo($replicaConfig);
+            $this->connectedAt[$replicaName] = time();
+            unset($this->replicaDeadUntil[$index]);
+            return $this->connections[$replicaName];
+        } catch (PDOException) {
+            $this->replicaDeadUntil[$index] = $now + self::REPLICA_COOLDOWN;
+            return $this->connection('default');
+        }
     }
 
     /**
