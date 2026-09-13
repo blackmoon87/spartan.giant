@@ -37,6 +37,19 @@ class Logger
     private array $handlers = [];
 
     /**
+     * Opt-in write buffering — batches log lines per file and flushes them in
+     * one file_put_contents() call instead of one per log entry. Off by
+     * default so `new Logger()` keeps its original one-write-per-call
+     * behavior; enable it on hot paths that log frequently within a request.
+     */
+    private bool $bufferEnabled = false;
+    private int $bufferThreshold = 100;
+    private int $bufferedCount = 0;
+
+    /** @var array<string, string> Pending log text, keyed by target file path */
+    private array $buffer = [];
+
+    /**
      * Severity levels ordered by priority (RFC 5424).
      */
     private const LEVELS = [
@@ -112,6 +125,9 @@ class Logger
         $child->correlationId = $this->correlationId;
         $child->minLevel      = $this->minLevel;
         $child->handlers      = $this->handlers;
+        if ($this->bufferEnabled) {
+            $child->enableBuffering($this->bufferThreshold);
+        }
         return $child;
     }
 
@@ -123,6 +139,36 @@ class Logger
     public function pushHandler(callable $handler): void
     {
         $this->handlers[] = $handler;
+    }
+
+    /**
+     * Enable write buffering: log lines accumulate in memory per target file
+     * and are flushed in a single write once $threshold entries are pending,
+     * plus automatically on script shutdown so nothing is lost.
+     *
+     * Extra handlers (pushHandler) still fire immediately per entry — only
+     * the file write is batched.
+     */
+    public function enableBuffering(int $threshold = 100): void
+    {
+        $this->bufferEnabled = true;
+        $this->bufferThreshold = max(1, $threshold);
+        register_shutdown_function([$this, 'flush']);
+    }
+
+    /**
+     * Write all buffered log lines to disk now and clear the buffer.
+     * Safe to call even when buffering is disabled (no-op if empty).
+     */
+    public function flush(): void
+    {
+        foreach ($this->buffer as $filePath => $lines) {
+            if ($lines !== '') {
+                file_put_contents($filePath, $lines, FILE_APPEND | LOCK_EX);
+            }
+        }
+        $this->buffer = [];
+        $this->bufferedCount = 0;
     }
 
     /**
@@ -252,7 +298,14 @@ class Logger
             rename($filePath, $rotated);
         }
 
-        file_put_contents($filePath, $logLine, FILE_APPEND);
+        if ($this->bufferEnabled) {
+            $this->buffer[$filePath] = ($this->buffer[$filePath] ?? '') . $logLine;
+            if (++$this->bufferedCount >= $this->bufferThreshold) {
+                $this->flush();
+            }
+        } else {
+            file_put_contents($filePath, $logLine, FILE_APPEND);
+        }
 
         // Dispatch to extra handlers
         foreach ($this->handlers as $handler) {
