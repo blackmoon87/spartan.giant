@@ -30,6 +30,11 @@ class Validator
      *   email            — must be a valid email address
      *   confirmed        — must match a field named {field}_confirmation
      *   in:a,b,c         — value must be one of the listed options
+     *   unique:table,column[,ignoreId[,idColumn]]
+     *
+     * Rules may also be given as an array — required when a rule's parameter
+     * itself contains '|', e.g. ['required', 'regex:/^(a|b)$/'].
+     * An unknown rule name throws: a typo must never silently pass.
      *
      * @param array $data   Raw input array (e.g. $this->request->getBody())
      * @param array $rules  ['field' => 'rule1|rule2:param', ...]
@@ -41,7 +46,7 @@ class Validator
 
         foreach ($rules as $field => $ruleString) {
             $value    = $data[$field] ?? null;
-            $ruleList = explode('|', $ruleString);
+            $ruleList = is_array($ruleString) ? $ruleString : explode('|', $ruleString);
 
             // nullable short-circuit: if the field is absent or empty and 'nullable'
             // is in the rule list, skip all remaining rules for this field.
@@ -73,7 +78,10 @@ class Validator
                     'in'        => $this->checkIn($field, $value, explode(',', (string) $param)),
                     'regex'     => $this->checkRegex($field, $value, (string) $param),
                     'unique'    => $this->checkUnique($field, $value, (string) $param),
-                    default     => null,
+                    default     => throw new \InvalidArgumentException(
+                        "Validator: unknown rule [{$ruleName}] for field [{$field}]."
+                        . (str_contains((string) $param, '/') ? " A regex containing '|' must be passed in array form." : '')
+                    ),
                 };
             }
         }
@@ -264,7 +272,7 @@ class Validator
             );
         }
 
-        [$table, $column] = array_pad(explode(',', $param, 2), 2, null);
+        [$table, $column, $ignoreId, $idColumn] = array_pad(explode(',', $param, 4), 4, null);
         $column = $column ?: $field;
 
         if (empty($table)) {
@@ -273,8 +281,19 @@ class Validator
 
         $driver = $this->db->getAttribute(\PDO::ATTR_DRIVER_NAME);
         $quote = ($driver === 'sqlite') ? '"' : '`';
-        $stmt = $this->db->prepare("SELECT COUNT(*) as cnt FROM {$quote}{$table}{$quote} WHERE {$quote}{$column}{$quote} = ?");
-        $stmt->execute([(string) $value]);
+        $q = fn(string $identifier) => $quote . str_replace($quote, '', $identifier) . $quote;
+
+        $sql      = "SELECT COUNT(*) as cnt FROM {$q($table)} WHERE {$q($column)} = ?";
+        $bindings = [(string) $value];
+
+        // unique:users,email,5 — ignore the record being updated.
+        if ($ignoreId !== null && $ignoreId !== '' && strtoupper($ignoreId) !== 'NULL') {
+            $sql       .= " AND {$q($idColumn ?: 'id')} <> ?";
+            $bindings[] = $ignoreId;
+        }
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($bindings);
         $count = (int) ($stmt->fetch(\PDO::FETCH_ASSOC)['cnt'] ?? 0);
 
         if ($count > 0) {

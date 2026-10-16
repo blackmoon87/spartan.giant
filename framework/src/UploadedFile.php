@@ -92,9 +92,30 @@ class UploadedFile
      */
     public function hashName(?string $extension = null): string
     {
-        $ext = $extension ?? $this->getExtension();
+        $ext = $extension ?? self::safeExtension($this->getExtension());
         $hash = bin2hex(random_bytes(16));
         return $ext !== '' ? $hash . '.' . $ext : $hash;
+    }
+
+    /**
+     * Extensions a web server may execute or interpret. A client-supplied
+     * "shell.php" must never be stored as "<hash>.php" — under a public
+     * directory that is remote code execution.
+     */
+    private const EXECUTABLE_EXTENSIONS = [
+        'php', 'php3', 'php4', 'php5', 'php7', 'php8', 'phtml', 'pht', 'phps', 'phar',
+        'shtml', 'htaccess', 'cgi', 'pl', 'py', 'asp', 'aspx', 'jsp', 'sh',
+    ];
+
+    /**
+     * Reduce a client-supplied extension to [a-z0-9] and neutralise the
+     * executable ones ('php' -> 'php.txt' is still executable on some Apache
+     * configs, so they become 'bin').
+     */
+    private static function safeExtension(string $ext): string
+    {
+        $ext = preg_replace('/[^a-z0-9]/', '', strtolower($ext)) ?? '';
+        return in_array($ext, self::EXECUTABLE_EXTENSIONS, true) ? 'bin' : $ext;
     }
 
     /**

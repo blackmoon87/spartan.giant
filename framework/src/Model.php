@@ -78,6 +78,14 @@ abstract class Model
         $stmt = $this->db->prepare($sql);
         QueryBuilder::bindTyped($stmt, $params);
         $stmt->execute();
+
+        // Raw SQL runs on the primary; anything but a read pins this
+        // request's later reads to the primary as well.
+        if (isset(Application::$app) && Application::$app->connections->isSplitEnabled()
+            && !preg_match('/^\s*(?:SELECT|WITH)\b/i', $sql)) {
+            Application::$app->connections->markWritten();
+        }
+
         return $stmt;
     }
 
@@ -101,6 +109,18 @@ abstract class Model
 
         if ($this->db === null) {
             throw new RuntimeException('Database connection is not configured or failed to initialize.');
+        }
+
+        // Read/write splitting (DB_READ_WRITE_SPLIT): SELECTs go to a replica,
+        // writes to the primary, and reads stick to the primary after a write.
+        if (isset(Application::$app) && Application::$app->connections->isSplitEnabled()) {
+            $connections = Application::$app->connections;
+            return new QueryBuilder(
+                $this->db,
+                $target,
+                fn() => $connections->readConnection(),
+                fn() => $connections->markWritten()
+            );
         }
 
         return new QueryBuilder($this->db, $target);
@@ -214,7 +234,8 @@ abstract class Model
     public function create(array $data): string|false
     {
         self::forgetMemoize($this->getTable());
-        if (isset(Application::$app) && isset(Application::$app->auth)) {
+        // forgetUser() is not part of AuthInterface; custom implementations may lack it.
+        if (isset(Application::$app) && isset(Application::$app->auth) && method_exists(Application::$app->auth, 'forgetUser')) {
             Application::$app->auth->forgetUser();
         }
         if ($this->timestamps) {
@@ -235,9 +256,11 @@ abstract class Model
     public function save(int|string $id, array $data): int
     {
         self::forgetMemoize($this->getTable());
-        if (isset(Application::$app) && isset(Application::$app->auth)) {
-            $currentUserId = Application::$app->auth->id();
-            if ((string)$currentUserId === (string)$id) {
+        // Compare against the session's user id: asking auth()->id() would load
+        // the user from the database on every save().
+        if (isset(Application::$app) && isset(Application::$app->auth) && method_exists(Application::$app->auth, 'forgetUser')) {
+            $currentUserId = Application::$app->session->get('user_id');
+            if ($currentUserId !== null && (string) $currentUserId === (string) $id) {
                 Application::$app->auth->forgetUser();
             }
         }

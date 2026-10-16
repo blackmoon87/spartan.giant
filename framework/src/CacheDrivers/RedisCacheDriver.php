@@ -18,6 +18,26 @@ use Spartan\CacheDriverInterface;
  */
 class RedisCacheDriver implements CacheDriverInterface
 {
+    /**
+     * Every cache key lives under this prefix so flush() can clear the cache
+     * without FLUSHDB — which also wiped queues, sessions and anything else
+     * sharing the Redis database.
+     */
+    private const PREFIX = 'spartan:cache:';
+
+    /**
+     * INCRBY + EXPIRE + TTL in one atomic round-trip. The TTL is (re)applied
+     * whenever the key has none, so a process dying between INCR and EXPIRE
+     * can no longer leave a counter that never resets (permanent lockout).
+     */
+    private const INCREMENT_SCRIPT = <<<'LUA'
+local hits = redis.call('INCRBY', KEYS[1], ARGV[1])
+if redis.call('TTL', KEYS[1]) < 0 then
+    redis.call('EXPIRE', KEYS[1], ARGV[2])
+end
+return {hits, redis.call('TTL', KEYS[1])}
+LUA;
+
     private \Redis $redis;
 
     public function __construct(array $config)
@@ -46,31 +66,36 @@ class RedisCacheDriver implements CacheDriverInterface
     {
         $serialized = serialize($value);
         if ($ttl > 0) {
-            $this->redis->setEx($key, $ttl, $serialized);
+            $this->redis->setEx(self::PREFIX . $key, $ttl, $serialized);
         } else {
-            $this->redis->set($key, $serialized);
+            $this->redis->set(self::PREFIX . $key, $serialized);
         }
     }
 
     public function get(string $key, mixed $default = null): mixed
     {
-        $value = $this->redis->get($key);
+        $value = $this->redis->get(self::PREFIX . $key);
         return $value !== false ? unserialize($value) : $default;
     }
 
     public function has(string $key): bool
     {
-        return (bool) $this->redis->exists($key);
+        return (bool) $this->redis->exists(self::PREFIX . $key);
     }
 
     public function forget(string $key): void
     {
-        $this->redis->del($key);
+        $this->redis->del(self::PREFIX . $key);
     }
 
     public function flush(): void
     {
-        $this->redis->flushDb();
+        $iterator = null;
+        while (($keys = $this->redis->scan($iterator, self::PREFIX . '*', 1000)) !== false) {
+            if ($keys !== []) {
+                $this->redis->del($keys);
+            }
+        }
     }
 
     /**
@@ -80,19 +105,12 @@ class RedisCacheDriver implements CacheDriverInterface
      */
     public function increment(string $key, int $ttl, int $by = 1): array
     {
-        $counter = $key . ':counter';
-        $hits    = (int) $this->redis->incrBy($counter, $by);
+        [$hits, $remaining] = $this->redis->eval(
+            self::INCREMENT_SCRIPT,
+            [self::PREFIX . $key . ':counter', $by, max(1, $ttl)],
+            1
+        );
 
-        if ($hits === $by) {
-            // First hit in this window — start the expiry clock.
-            $this->redis->expire($counter, $ttl);
-            $resetAt = time() + $ttl;
-            $this->redis->setEx($key . ':reset', $ttl, (string) $resetAt);
-        } else {
-            $stored  = $this->redis->get($key . ':reset');
-            $resetAt = $stored !== false ? (int) $stored : time() + max(1, (int) $this->redis->ttl($counter));
-        }
-
-        return [$hits, $resetAt];
+        return [(int) $hits, time() + max(1, (int) $remaining)];
     }
 }

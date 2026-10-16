@@ -64,7 +64,7 @@ if ($app->db === null) {
     exit(1);
 }
 
-$queue     = new JobQueue($app->db);
+$queue     = new JobQueue($app->db, (int) ($config['queue']['stale_after'] ?? 600));
 $loopMode  = in_array('--loop', $argv ?? [], true);
 $pollSecs  = 5;
 

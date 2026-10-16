@@ -46,6 +46,9 @@ class ConnectionManager
     /** @var bool Whether read/write splitting is enabled */
     private bool $splitEnabled = false;
 
+    /** splitEnabled && a replica exists — one flag, since Model::table() asks on every query. */
+    private bool $splitActive = false;
+
     /** @var array<string, int> Unix timestamp each open connection was created, keyed by name */
     private array $connectedAt = [];
 
@@ -63,6 +66,12 @@ class ConnectionManager
 
     /** Seconds a failed replica is skipped before being retried. */
     private const REPLICA_COOLDOWN = 30;
+
+    /**
+     * Set once this request has written to the primary: later reads stay on
+     * the primary so the request sees its own writes (replicas lag).
+     */
+    private bool $sticky = false;
 
     /**
      * Register a named connection configuration.
@@ -87,8 +96,9 @@ class ConnectionManager
      */
     public function addReadReplica(array $config): void
     {
-        if (!empty($config['host'])) {
+        if (!empty($config['host']) || !empty($config['database'])) {
             $this->readReplicas[] = $config;
+            $this->splitActive    = $this->splitEnabled;
         }
     }
 
@@ -99,6 +109,7 @@ class ConnectionManager
     public function enableSplit(bool $enabled = true): void
     {
         $this->splitEnabled = $enabled;
+        $this->splitActive  = $enabled && $this->readReplicas !== [];
     }
 
     /**
@@ -115,7 +126,7 @@ class ConnectionManager
      */
     public function isSplitEnabled(): bool
     {
-        return $this->splitEnabled && !empty($this->readReplicas);
+        return $this->splitActive;
     }
 
     /**
@@ -156,6 +167,41 @@ class ConnectionManager
         $this->connections[$name] = $this->createPdo($this->configs[$name]);
         $this->connectedAt[$name] = time();
         return $this->connections[$name];
+    }
+
+    /**
+     * The connection a SELECT should use: a replica when splitting is active,
+     * but the primary inside a transaction or once this request has written
+     * (read-your-writes).
+     */
+    public function readConnection(): PDO
+    {
+        if ($this->sticky || !$this->isSplitEnabled()) {
+            return $this->connection('default');
+        }
+
+        $primary = $this->connections['default'] ?? null;
+        if ($primary !== null && $primary->inTransaction()) {
+            return $primary;
+        }
+
+        return $this->getReadReplica();
+    }
+
+    /**
+     * Record a write: the rest of this request reads from the primary.
+     */
+    public function markWritten(): void
+    {
+        $this->sticky = true;
+    }
+
+    /**
+     * Start a new request with reads allowed on replicas again (worker mode).
+     */
+    public function resetStickiness(): void
+    {
+        $this->sticky = false;
     }
 
     /**

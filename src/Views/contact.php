@@ -10,6 +10,7 @@
     <?php endif; ?>
 
     <form action="/contact" method="post">
+        <?= $this->csrfToken() ?>
         <div class="form-group">
             <label for="name">Full Name</label>
             <input type="text" id="name" name="name" value="<?= htmlspecialchars($body['name'] ?? '') ?>" placeholder="e.g. Jane Doe" required>

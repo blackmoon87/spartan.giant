@@ -11,20 +11,6 @@ if (php_sapi_name() === 'cli-server') {
     }
 }
 
-// Error reporting — controlled strictly by APP_DEBUG env flag.
-// NEVER enable display_errors in production. This block reads the .env
-// value before the Application boots so errors during boot are visible locally.
-$debugMode = getenv('APP_DEBUG') === 'true' || ($_ENV['APP_DEBUG'] ?? 'false') === 'true';
-if ($debugMode) {
-    ini_set('display_errors', '1');
-    ini_set('display_startup_errors', '1');
-    error_reporting(E_ALL);
-} else {
-    ini_set('display_errors', '0');
-    ini_set('log_errors', '1');
-    error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
-}
-
 // Load Autoloader
 $autoloadPath = dirname(__DIR__) . '/vendor/autoload.php';
 if (file_exists($autoloadPath)) {
@@ -56,14 +42,34 @@ if (file_exists($autoloadPath)) {
 
 use Spartan\Application;
 
-// Load config array
+// Load config array (this also loads .env)
 $config = require_once dirname(__DIR__) . '/config/config.php';
+
+// Error reporting — controlled strictly by APP_DEBUG. Read AFTER the config
+// loads .env: checked earlier, APP_DEBUG from .env was never seen.
+// NEVER enable display_errors in production.
+$debugMode = (bool) ($config['app']['debug'] ?? false);
+if ($debugMode) {
+    ini_set('display_errors', '1');
+    ini_set('display_startup_errors', '1');
+    error_reporting(E_ALL);
+} else {
+    ini_set('display_errors', '0');
+    ini_set('log_errors', '1');
+    error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
+}
 
 // Tell the framework where the project lives (it ships from vendor/).
 $config['base_path'] ??= dirname(__DIR__);
 
 // Instantiate App
 $app = new Application($config);
+
+// CSRF verification for every state-changing request (POST/PUT/PATCH/DELETE).
+// Exclude stateless endpoints with $app->router->excludeCsrf('/api/*').
+$app->router->setGlobalMiddlewares([
+    \Spartan\Middlewares\CsrfMiddleware::class,
+]);
 
 // ─── Load Routes ──────────────────────────────────────────────────────────────
 // If route cache is enabled and not in debug mode, load from cache.

@@ -53,6 +53,21 @@ class QueryBuilder
     ];
 
     /**
+     * SQL functions accepted in select()/orderBy()/groupBy()/having() column
+     * expressions. Aggregates plus common pure scalar functions — nothing
+     * that sleeps, reads files or compares strings character by character.
+     */
+    private const ALLOWED_FUNCTIONS = [
+        'COUNT' => true, 'SUM' => true, 'AVG' => true, 'MIN' => true, 'MAX' => true,
+        'LOWER' => true, 'UPPER' => true, 'LENGTH' => true, 'CHAR_LENGTH' => true,
+        'ABS' => true, 'ROUND' => true, 'COALESCE' => true, 'IFNULL' => true,
+        'DATE' => true, 'YEAR' => true, 'MONTH' => true, 'DAY' => true, 'TRIM' => true,
+    ];
+
+    /** One function argument: dotted identifier, number, or complete '...' literal. */
+    private const ARG = "(?:[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)?|-?\\d+(?:\\.\\d+)?|'[^'\\\\]*')";
+
+    /**
      * Compiled column expressions, shared process-wide and keyed by dialect.
      * Column compilation is pure (same input + dialect = same SQL), so the
      * whitelist regex runs once per distinct column instead of per query.
@@ -83,13 +98,25 @@ class QueryBuilder
     // Construction (called by Model::table())
     // ─────────────────────────────────────────────────────────────────────────
 
-    public function __construct(PDO $db, string $table)
+    /**
+     * Read/write splitting (both null unless enabled): $readConnection
+     * resolves the PDO for SELECTs (lazily — a write-only builder never opens
+     * a replica), $onWrite is told about every write.
+     */
+    private ?\Closure $readConnection = null;
+    private ?\Closure $onWrite = null;
+
+    public function __construct(PDO $db, string $table, ?\Closure $readConnection = null, ?\Closure $onWrite = null)
     {
         if (empty($table)) {
             throw new RuntimeException('QueryBuilder requires a table name.');
         }
         $this->db    = $db;
         $this->table = $table;
+        if ($readConnection !== null) {
+            $this->readConnection = $readConnection;
+            $this->onWrite        = $onWrite;
+        }
 
         $driver = $db->getAttribute(PDO::ATTR_DRIVER_NAME);
         if ($driver === 'sqlite') {
@@ -111,18 +138,22 @@ class QueryBuilder
      */
     public function select(string ...$columns): static
     {
-        // Flatten comma-separated strings like select('id, name') into ['id', 'name']
+        // Flatten comma-separated strings like select('id, name') into ['id', 'name'].
+        // Only top-level commas split: "COALESCE(role, 'none') as r" is one column.
         $flat = [];
         foreach ($columns as $col) {
-            if (str_contains($col, ',')) {
-                foreach (explode(',', $col) as $part) {
-                    $trimmed = trim($part);
-                    if ($trimmed !== '') {
-                        $flat[] = $trimmed;
-                    }
-                }
-            } else {
+            if (!str_contains($col, ',')) {
                 $flat[] = $col;
+                continue;
+            }
+            $parts = str_contains($col, '(')
+                ? preg_split("/,(?![^(]*\\))/", $col)
+                : explode(',', $col);
+            foreach ($parts as $part) {
+                $trimmed = trim($part);
+                if ($trimmed !== '') {
+                    $flat[] = $trimmed;
+                }
             }
         }
         $this->selects = $flat;
@@ -360,7 +391,7 @@ class QueryBuilder
     public function get(): array
     {
         [$sql, $bindings] = $this->buildSelect();
-        $stmt = $this->execute($sql, $bindings);
+        $stmt = $this->executeRead($sql, $bindings);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -369,9 +400,13 @@ class QueryBuilder
      */
     public function first(): ?array
     {
+        // LIMIT 1 applies to this query only: the builder stays reusable
+        // (a later get() on it previously returned a single row).
+        $limit = $this->limitVal;
         $this->limitVal = 1;
         [$sql, $bindings] = $this->buildSelect();
-        $stmt = $this->execute($sql, $bindings);
+        $this->limitVal = $limit;
+        $stmt = $this->executeRead($sql, $bindings);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
@@ -400,13 +435,15 @@ class QueryBuilder
         // COUNT query (respects wheres + joins + groupBy + having)
         [$countSql, $bindings] = $this->buildCount();
 
-        $total = (int) ($this->execute($countSql, $bindings)->fetch(\PDO::FETCH_ASSOC)['cnt'] ?? 0);
+        $total = (int) ($this->executeRead($countSql, $bindings)->fetch(\PDO::FETCH_ASSOC)['cnt'] ?? 0);
 
-        // Apply pagination bounds and fetch data
+        // Apply pagination bounds for this query only, then restore them.
+        [$limit, $offset] = [$this->limitVal, $this->offsetVal];
         $this->limitVal  = $perPage;
         $this->offsetVal = ($page - 1) * $perPage;
         [$sql, $allBindings] = $this->buildSelect();
-        $data = $this->execute($sql, $allBindings)->fetchAll(\PDO::FETCH_ASSOC);
+        [$this->limitVal, $this->offsetVal] = [$limit, $offset];
+        $data = $this->executeRead($sql, $allBindings)->fetchAll(\PDO::FETCH_ASSOC);
 
         return [
             'data'         => $data,
@@ -431,7 +468,7 @@ class QueryBuilder
     public function count(): int
     {
         [$sql, $bindings] = $this->buildCount();
-        $stmt = $this->execute($sql, $bindings);
+        $stmt = $this->executeRead($sql, $bindings);
         return (int) ($stmt->fetch(PDO::FETCH_ASSOC)['cnt'] ?? 0);
     }
 
@@ -446,7 +483,7 @@ class QueryBuilder
         $clone->offsetVal = null;
         $clone->orderBys  = [];
         [$sql, $bindings] = $clone->buildSelect();
-        $stmt = $clone->execute($sql, $bindings);
+        $stmt = $clone->executeRead($sql, $bindings);
         return (bool) $stmt->fetchColumn();
     }
 
@@ -460,8 +497,13 @@ class QueryBuilder
     public function pluck(string $column, ?string $key = null): array
     {
         $selectCols = $key !== null ? [$column, $key] : [$column];
+        $selects = $this->selects;
         $this->select(...$selectCols);
-        $rows = $this->get();
+        try {
+            $rows = $this->get();
+        } finally {
+            $this->selects = $selects;
+        }
         if (empty($rows)) {
             return [];
         }
@@ -533,7 +575,8 @@ class QueryBuilder
         // it mid-iteration. Handing out a shared cached statement here would let
         // a later, unrelated query with the same SQL re-execute (and silently
         // rewind) the very statement this generator is still reading from.
-        $stmt = $this->db->prepare($sql);
+        $pdo  = $this->readConnection === null ? $this->db : ($this->readConnection)();
+        $stmt = $pdo->prepare($sql);
         self::bindTyped($stmt, $bindings);
         $stmt->execute();
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -893,9 +936,26 @@ class QueryBuilder
         return [implode('', $parts), $this->bindings];
     }
 
+    /**
+     * Run a write (INSERT/UPDATE/DELETE) — always on the primary.
+     */
     private function execute(string $sql, array $bindings): \PDOStatement
     {
-        $stmt = $this->prepareCached($sql);
+        $stmt = $this->prepareCached($sql, $this->db);
+        self::bindTyped($stmt, $bindings);
+        $stmt->execute();
+        if ($this->onWrite !== null) {
+            ($this->onWrite)();
+        }
+        return $stmt;
+    }
+
+    /**
+     * Run a SELECT — on a replica when read/write splitting is enabled.
+     */
+    private function executeRead(string $sql, array $bindings): \PDOStatement
+    {
+        $stmt = $this->prepareCached($sql, $this->readConnection === null ? $this->db : ($this->readConnection)());
         self::bindTyped($stmt, $bindings);
         $stmt->execute();
         return $stmt;
@@ -905,16 +965,16 @@ class QueryBuilder
      * Prepare a statement, reusing a cached PDOStatement for identical SQL on
      * the same connection instead of re-preparing it.
      */
-    private function prepareCached(string $sql): \PDOStatement
+    private function prepareCached(string $sql, PDO $pdo): \PDOStatement
     {
         $cache = self::$stmtCache ??= new \WeakMap();
-        $perConnection = $cache[$this->db] ?? [];
+        $perConnection = $cache[$pdo] ?? [];
 
         if (isset($perConnection[$sql])) {
             return $perConnection[$sql];
         }
 
-        $stmt = $this->db->prepare($sql);
+        $stmt = $pdo->prepare($sql);
 
         // Bound so callers that generate many distinct SQL strings (LIMIT/OFFSET
         // are inlined rather than bound, so paginated queries vary the text)
@@ -923,7 +983,7 @@ class QueryBuilder
             array_shift($perConnection);
         }
         $perConnection[$sql] = $stmt;
-        $cache[$this->db] = $perConnection;
+        $cache[$pdo] = $perConnection;
 
         return $stmt;
     }
@@ -978,13 +1038,16 @@ class QueryBuilder
         }
 
         if (str_contains($column, '(') || str_contains($column, ')')) {
-            // Allowed shape: FUNC(args) [AS alias] — args restricted to
-            // identifiers, dots, commas, digits, '*' and quoted literals.
+            // Allowed shape: FUNC(args) [AS alias], FUNC from a fixed list
+            // (any function name let ?sort=SLEEP(5) or STRCMP(password,'m')
+            // through). Args: '*', or a comma list of dotted identifiers,
+            // numbers and complete single-quoted literals — an unbalanced
+            // quote could swallow the rest of the statement.
             if (preg_match(
-                '/^([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*((?:DISTINCT\s+)?[A-Za-z0-9_.,*\s\x27"%+-]*)\)(?:\s+as\s+([A-Za-z0-9_]+))?$/i',
+                '/^([A-Za-z_]+)\s*\(\s*((?:DISTINCT\s+)?(?:\*|' . self::ARG . '(?:\s*,\s*' . self::ARG . ')*)?)\s*\)(?:\s+as\s+([A-Za-z0-9_]+))?$/i',
                 $column,
                 $m
-            )) {
+            ) && isset(self::ALLOWED_FUNCTIONS[strtoupper($m[1])])) {
                 $sql = $m[1] . '(' . trim($m[2]) . ')';
                 if (($m[3] ?? '') !== '') {
                     $sql .= ' AS ' . $this->dialect->quoteIdentifier($m[3]);

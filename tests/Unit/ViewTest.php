@@ -176,7 +176,7 @@ final class ViewTest extends TestCase
     {
         $source = file_get_contents(__DIR__ . '/../../framework/src/View.php');
 
-        $this->assertStringContainsString('md5($sourcePath)', $source, 'two view roots must not collide');
+        $this->assertStringContainsString('md5(self::COMPILER_VERSION . $sourcePath)', $source, 'two view roots must not collide');
     }
 
     public function test_compiled_views_are_written_atomically(): void

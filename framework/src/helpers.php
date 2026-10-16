@@ -138,7 +138,9 @@ if (!function_exists('old')) {
         }
 
         $session = \Spartan\Application::$app->session;
-        $oldInputs = $session->get('_old_input') ?? $session->getFlash('_old_input');
+        // 'old_input' is what FormRequest flashes; '_old_input' is kept for
+        // applications that stored it themselves.
+        $oldInputs = $session->get('_old_input') ?? $session->getFlash('old_input') ?? $session->getFlash('_old_input');
         if (is_array($oldInputs) && array_key_exists($key, $oldInputs)) {
             return $oldInputs[$key];
         }

@@ -6,6 +6,13 @@ namespace Spartan;
 
 class View implements ViewInterface
 {
+    /**
+     * Bump whenever compileString() output changes: it is part of the
+     * compiled-file key, so templates compiled by an older compiler are never
+     * reused just because their source file did not change.
+     */
+    private const COMPILER_VERSION = '3';
+
     private string $layout = 'main';
     private string $viewsPath;
     private array $sections = [];
@@ -128,21 +135,23 @@ class View implements ViewInterface
         $this->extendedLayout = null;
         $this->sections       = [];
 
-        $viewContent = $this->renderCompiled($compiledFile, $params);
+        try {
+            $viewContent = $this->renderCompiled($compiledFile, $params);
 
-        // The compiled template calls $this->extend() while rendering, so this
-        // property is not necessarily still null here.
-        /** @phpstan-ignore-next-line notIdentical.alwaysFalse */
-        if ($this->extendedLayout !== null) {
-            $layoutCompiled = $this->compile($this->extendedLayout);
-            $viewContent    = $this->renderCompiled($layoutCompiled, $params);
+            // The compiled template calls $this->extend() while rendering, so this
+            // property is not necessarily still null here.
+            /** @phpstan-ignore-next-line notIdentical.alwaysFalse */
+            if ($this->extendedLayout !== null) {
+                $layoutCompiled = $this->compile($this->extendedLayout);
+                $viewContent    = $this->renderCompiled($layoutCompiled, $params);
+            }
+
+            return $viewContent;
+        } finally {
+            // Restore previous state — also when the template throws.
+            $this->extendedLayout = $previousLayout;
+            $this->sections       = $previousSections;
         }
-
-        // Restore previous state
-        $this->extendedLayout = $previousLayout;
-        $this->sections       = $previousSections;
-
-        return $viewContent;
     }
 
     /**
@@ -152,26 +161,30 @@ class View implements ViewInterface
     {
         $viewFile = str_replace('.', '/', $view);
         $sourcePath = $this->viewsPath . "/{$viewFile}.blade.php";
+
+        $viewsConfig = isset(Application::$app) ? (Application::$app->config['views'] ?? []) : [];
+        $cacheDir = $viewsConfig['cache_path'] ?? Paths::storage('views');
+
+        // Key on the FULL source path: two apps (or two view roots) sharing a
+        // cache directory previously collided on md5('home').
+        $compiledPath = $cacheDir . '/' . md5(self::COMPILER_VERSION . $sourcePath) . '.php';
+
+        // cache_enabled (production): an existing compiled file is trusted as
+        // is — no stat of the source template on every render. Run
+        // `php spartan view:clear` after deploying template changes.
+        if (($viewsConfig['cache_enabled'] ?? false) && is_file($compiledPath)) {
+            return $compiledPath;
+        }
+
         if (!file_exists($sourcePath)) {
             throw new \InvalidArgumentException("Blade template not found [{$view}]");
         }
 
-        $viewsConfig = isset(Application::$app) ? (Application::$app->config['views'] ?? []) : [];
-        $cacheDir = $viewsConfig['cache_path'] ?? Paths::storage('views');
         if (!is_dir($cacheDir)) {
             mkdir($cacheDir, 0755, true);
         }
 
-        // Key on the FULL source path: two apps (or two view roots) sharing a
-        // cache directory previously collided on md5('home').
-        $compiledPath = $cacheDir . '/' . md5($sourcePath) . '.php';
-
-        $cacheEnabled = $viewsConfig['cache_enabled'] ?? false;
-
-        if ($cacheEnabled && file_exists($compiledPath) && filemtime($sourcePath) <= filemtime($compiledPath)) {
-            return $compiledPath;
-        }
-
+        // Development: recompile whenever the source is newer than its compiled file.
         if (!file_exists($compiledPath) || filemtime($sourcePath) > filemtime($compiledPath)) {
             $content = file_get_contents($sourcePath);
             $compiledContent = $this->compileString($content);
@@ -203,6 +216,19 @@ class View implements ViewInterface
         // Strip Blade comments: {{-- comment --}} before processing variable interpolations
         $content = preg_replace('/\{\{--.*?--\}\}/s', '', $content);
 
+        // Escapes: "@@if" prints "@if", "@{{ x }}" prints "{{ x }}" (JS frameworks).
+        $content = str_replace(['@@', '@{{'], ["\0SPARTAN_AT\0", "\0SPARTAN_LB\0"], $content);
+
+        // An '@' between plain text and a domain is an email address, not a
+        // directive: "info@authority.com" used to compile "@auth" into an
+        // unclosed if() and fatal. Text glued to a directive ("yes@endif")
+        // has no domain after it and still compiles.
+        $content = preg_replace(
+            '/(?<=[A-Za-z0-9._%+-])@(?=[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b)/',
+            "\0SPARTAN_AT\0",
+            $content
+        );
+
         $content = preg_replace('/\{\{\s*(.+?)\s*\}\}/s', '<?php echo htmlspecialchars(($1) ?? \'\', ENT_QUOTES, \'UTF-8\'); ?>', $content);
         $content = preg_replace('/\{!!\s*(.+?)\s*!!\}/s', '<?php echo $1; ?>', $content);
         $content = preg_replace('/@extends\s*\((.*?)\)/', '<?php $this->extend($1); ?>', $content);
@@ -217,47 +243,47 @@ class View implements ViewInterface
         );
         // Block section: @section('name') ... @endsection
         $content = preg_replace('/@section\s*\((.*?)\)/', '<?php $this->startSection($1); ?>', $content);
-        $content = preg_replace('/@endsection/', '<?php $this->endSection(); ?>', $content);
+        $content = preg_replace('/@endsection\b/', '<?php $this->endSection(); ?>', $content);
         $content = preg_replace('/@yield\s*\((.*?)\)/', '<?php echo $this->yieldContent($1); ?>', $content);
         $content = preg_replace('/@include\s*\((.*?)\)/', '<?php echo $this->include($1, get_defined_vars()); ?>', $content);
-        $content = preg_replace('/@csrf/', '<?php echo $this->csrfToken(); ?>', $content);
+        $content = preg_replace('/@csrf\b/', '<?php echo $this->csrfToken(); ?>', $content);
         $content = preg_replace('/@method\s*\(\s*[\'"]([A-Za-z]+)[\'"]\s*\)/', '<input type="hidden" name="_method" value="$1">', $content);
         
         $content = preg_replace('/@flash\s*\((.*?)\)/', '<?php if($flashMsg = $this->flash($1)): ?>', $content);
-        $content = preg_replace('/@endflash/', '<?php endif; ?>', $content);
+        $content = preg_replace('/@endflash\b/', '<?php endif; ?>', $content);
         $content = preg_replace('/@escape\s*(\((?>[^()]+|(?1))*\))/', '<?php echo $this->escape$1; ?>', $content);
         
         $content = preg_replace('/@if\s*(\((?>[^()]+|(?1))*\))/', '<?php if$1: ?>', $content);
         $content = preg_replace('/@elseif\s*(\((?>[^()]+|(?1))*\))/', '<?php elseif$1: ?>', $content);
-        $content = preg_replace('/@else/', '<?php else: ?>', $content);
-        $content = preg_replace('/@endif/', '<?php endif; ?>', $content);
+        $content = preg_replace('/@else\b/', '<?php else: ?>', $content);
+        $content = preg_replace('/@endif\b/', '<?php endif; ?>', $content);
 
         $content = preg_replace('/@foreach\s*(\((?>[^()]+|(?1))*\))/', '<?php foreach$1: ?>', $content);
-        $content = preg_replace('/@endforeach/', '<?php endforeach; ?>', $content);
+        $content = preg_replace('/@endforeach\b/', '<?php endforeach; ?>', $content);
 
         $content = preg_replace('/@for\s*(\((?>[^()]+|(?1))*\))/', '<?php for$1: ?>', $content);
-        $content = preg_replace('/@endfor/', '<?php endfor; ?>', $content);
+        $content = preg_replace('/@endfor\b/', '<?php endfor; ?>', $content);
 
         $content = preg_replace('/@while\s*(\((?>[^()]+|(?1))*\))/', '<?php while$1: ?>', $content);
-        $content = preg_replace('/@endwhile/', '<?php endwhile; ?>', $content);
+        $content = preg_replace('/@endwhile\b/', '<?php endwhile; ?>', $content);
 
         $content = preg_replace('/@empty\s*(\((?>[^()]+|(?1))*\))/', '<?php if(empty$1): ?>', $content);
-        $content = preg_replace('/@endempty/', '<?php endif; ?>', $content);
+        $content = preg_replace('/@endempty\b/', '<?php endif; ?>', $content);
 
         // Authentication Directives (@auth, @guest)
-        $content = preg_replace('/@auth/', '<?php if(\Spartan\Gate::resolveUser() !== null): ?>', $content);
-        $content = preg_replace('/@endauth/', '<?php endif; ?>', $content);
-        $content = preg_replace('/@guest/', '<?php if(\Spartan\Gate::resolveUser() === null): ?>', $content);
-        $content = preg_replace('/@endguest/', '<?php endif; ?>', $content);
+        $content = preg_replace('/@auth\b/', '<?php if(\Spartan\Gate::resolveUser() !== null): ?>', $content);
+        $content = preg_replace('/@endauth\b/', '<?php endif; ?>', $content);
+        $content = preg_replace('/@guest\b/', '<?php if(\Spartan\Gate::resolveUser() === null): ?>', $content);
+        $content = preg_replace('/@endguest\b/', '<?php endif; ?>', $content);
 
         // Custom Authorization Directives (order matters: @cannot before @can to prevent partial match)
         $content = preg_replace('/@cannot\s*(\((?>[^()]+|(?1))*\))/', '<?php if(\Spartan\Gate::denies$1): ?>', $content);
-        $content = preg_replace('/@endcannot/', '<?php endif; ?>', $content);
+        $content = preg_replace('/@endcannot\b/', '<?php endif; ?>', $content);
         $content = preg_replace('/@can\s*(\((?>[^()]+|(?1))*\))/', '<?php if(\Spartan\Gate::check$1): ?>', $content);
-        $content = preg_replace('/@endcan/', '<?php endif; ?>', $content);
+        $content = preg_replace('/@endcan\b/', '<?php endif; ?>', $content);
 
         $content = preg_replace('/@role\s*(\((?>[^()]+|(?1))*\))/', '<?php if(($__user = \Spartan\Gate::resolveUser()) && method_exists($__user, \'hasRole\') && $__user->hasRole$1): ?>', $content);
-        $content = preg_replace('/@endrole/', '<?php endif; ?>', $content);
+        $content = preg_replace('/@endrole\b/', '<?php endif; ?>', $content);
 
         // Translation Directives
         // @lang('key') → HTML-escaped translated string
@@ -272,9 +298,9 @@ class View implements ViewInterface
         $content = preg_replace('/@disabled\s*(\((?>[^()]+|(?1))*\))/', '<?php if$1: ?> disabled="disabled"<?php endif; ?>', $content);
 
         // Raw PHP block directive: @php ... @endphp
-        $content = preg_replace('/@php(.*?)@endphp/s', '<?php $1 ?>', $content);
+        $content = preg_replace('/@php\b(.*?)@endphp\b/s', '<?php $1 ?>', $content);
 
-        return $content;
+        return str_replace(["\0SPARTAN_AT\0", "\0SPARTAN_LB\0"], ['@', '{{'], $content);
     }
 
     /**
@@ -305,8 +331,11 @@ class View implements ViewInterface
             $value
         );
 
-        $q = "'\"";
-        return '<?php $this->sections[trim(' . $name . ', "' . $q . '")] = ' . $value . '; ?' . '>';
+        // The name is a quoted literal: resolve it now. The previous runtime
+        // trim($name, "'"") emitted an unescaped quote — every inline
+        // @section compiled to a ParseError.
+        $key = var_export(trim($name, '\'"'), true);
+        return '<?php $this->sections[' . $key . '] = ' . $value . '; ?' . '>';
     }
 
     /**
@@ -321,7 +350,26 @@ class View implements ViewInterface
             return (string) ob_get_clean();
         }, $this, static::class);
 
-        return $renderer();
+        return $this->runIsolated($renderer);
+    }
+
+    /**
+     * Run a template renderer, discarding any output buffers it left open if
+     * it throws: otherwise partial template output leaked into the error
+     * page, and in worker mode the buffers piled up request after request.
+     */
+    private function runIsolated(\Closure $renderer): string
+    {
+        $level = ob_get_level();
+        try {
+            return $renderer();
+        } catch (\Throwable $e) {
+            while (ob_get_level() > $level) {
+                ob_end_clean();
+            }
+            $this->activeSection = null;
+            throw $e;
+        }
     }
 
     /**
@@ -410,7 +458,7 @@ class View implements ViewInterface
             return (string) ob_get_clean();
         }, $this, static::class);
 
-        return $renderer();
+        return $this->runIsolated($renderer);
     }
 
     /**
@@ -439,6 +487,6 @@ class View implements ViewInterface
             return (string) ob_get_clean();
         }, $this, static::class);
 
-        return $renderer();
+        return $this->runIsolated($renderer);
     }
 }

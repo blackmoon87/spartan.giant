@@ -68,13 +68,14 @@ abstract class FormRequest extends Request
         $response = Application::$app->response;
         if ($this->isAjax() || str_contains($this->header('Content-Type') ?? '', 'application/json')) {
             $response->json(['error' => 'This action is unauthorized.'], 403);
-            $response->send();
-            exit;
+            throw new HttpResponseException($response);
         }
 
+        // Previously echoed the body and exited without ever sending the
+        // 403, so the client received "200 OK".
         $response->setStatusCode(403);
-        echo "This action is unauthorized.";
-        exit;
+        $response->setContent('This action is unauthorized.');
+        throw new HttpResponseException($response);
     }
 
     /**
@@ -85,9 +86,14 @@ abstract class FormRequest extends Request
         $response = Application::$app->response;
         $session = Application::$app->session;
 
-        // Flash old input and errors
+        // Flash old input and errors. Password fields are never written to
+        // session storage in plaintext.
         $session->setFlash('validation_errors', $errors);
-        $session->setFlash('old_input', $this->getBody());
+        $session->setFlash('old_input', array_filter(
+            $this->getBody(),
+            fn($key) => !str_contains(strtolower((string) $key), 'password'),
+            ARRAY_FILTER_USE_KEY
+        ));
 
         if (defined('SPARTAN_TESTING') && SPARTAN_TESTING) {
             throw new \RuntimeException("Validation Failed: " . json_encode($errors));
@@ -98,13 +104,11 @@ abstract class FormRequest extends Request
                 'message' => 'The given data was invalid.',
                 'errors' => $errors
             ], 422);
-            $response->send();
-            exit;
+            throw new HttpResponseException($response);
         }
 
         $referer = $this->header('Referer') ?? '/';
         $response->redirect($referer);
-        $response->send();
-        exit;
+        throw new HttpResponseException($response);
     }
 }

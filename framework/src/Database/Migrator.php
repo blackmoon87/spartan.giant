@@ -49,22 +49,11 @@ class Migrator
             }
 
             echo "Migrating: {$filename}...\n";
-            $sql = file_get_contents($file);
-            $sql = $this->translateDialect($sql);
+            $sql = $this->translateDialect((string) file_get_contents($file));
 
-            try {
-                $queries = array_filter(array_map('trim', explode(';', $sql)));
-                foreach ($queries as $query) {
-                    if ($query !== '') {
-                        $this->db->exec($query);
-                    }
-                }
-                $this->logMigration($filename, $batch);
-                echo "Migrated:  {$filename}\n";
-                $ran++;
-            } catch (\Throwable $e) {
-                throw $e;
-            }
+            $this->runStatements($filename, $sql, fn() => $this->logMigration($filename, $batch));
+            echo "Migrated:  {$filename}\n";
+            $ran++;
         }
 
         if ($ran === 0) {
@@ -105,17 +94,10 @@ class Migrator
             }
 
             echo "Rolling back: {$filename}...\n";
-            $sql = file_get_contents($downFile);
-            $sql = $this->translateDialect($sql);
+            $sql = $this->translateDialect((string) file_get_contents($downFile));
 
             try {
-                $queries = array_filter(array_map('trim', explode(';', $sql)));
-                foreach ($queries as $query) {
-                    if ($query !== '') {
-                        $this->db->exec($query);
-                    }
-                }
-                $this->removeMigration($filename);
+                $this->runStatements($filename, $sql, fn() => $this->removeMigration($filename));
                 echo "Rolled back: {$filename}\n";
             } catch (\Throwable $e) {
                 echo "  ❌ Rollback failed for {$filename}: " . $e->getMessage() . "\n";
@@ -341,9 +323,126 @@ class Migrator
     private function getDownFile(string $filename): ?string
     {
         // 0001_create_users_table.sql → 0001_create_users_table_down.sql
-        $downName = str_replace('.sql', '_down.sql', $filename);
+        $downName = preg_replace('/\.sql$/', '_down.sql', $filename);
         $path     = $this->migrationsPath . '/' . $downName;
         return file_exists($path) ? $path : null;
+    }
+
+    /**
+     * Execute a migration file's statements, then $record its bookkeeping.
+     *
+     * SQLite has transactional DDL: the whole file and its bookkeeping row
+     * commit together, so a failure leaves no half-applied, unrecorded
+     * migration behind. MySQL commits every DDL statement implicitly (a
+     * transaction cannot help), so there the failing statement is reported
+     * to show exactly how far the file got.
+     */
+    private function runStatements(string $filename, string $sql, \Closure $record): void
+    {
+        $statements    = $this->splitStatements($sql);
+        $transactional = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite' && !$this->db->inTransaction();
+
+        if ($transactional) {
+            $this->db->beginTransaction();
+        }
+
+        try {
+            foreach ($statements as $i => $statement) {
+                try {
+                    $this->db->exec($statement);
+                } catch (\Throwable $e) {
+                    echo "  ❌ {$filename}: statement " . ($i + 1) . ' of ' . count($statements) . " failed"
+                        . ($transactional ? ' — nothing from this file was applied.' : ' — earlier statements were applied.') . "\n";
+                    throw $e;
+                }
+            }
+            $record();
+
+            if ($transactional) {
+                $this->db->commit();
+            }
+        } catch (\Throwable $e) {
+            if ($transactional && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * Split SQL into statements on ';' — but not on a ';' inside a quoted
+     * string or identifier, a comment, or a CREATE TRIGGER ... END body
+     * (a plain explode(';') broke all of those).
+     *
+     * @return list<string>
+     */
+    private function splitStatements(string $sql): array
+    {
+        $backslashEscapes = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql';
+        $statements = [];
+        $current    = '';
+        $quote      = null;
+        $length     = strlen($sql);
+
+        for ($i = 0; $i < $length; $i++) {
+            $char = $sql[$i];
+            $next = $sql[$i + 1] ?? '';
+
+            if ($quote !== null) {
+                $current .= $char;
+                if ($char === '\\' && $backslashEscapes && $quote !== '`') {
+                    $current .= $next; // MySQL: \' does not close the string
+                    $i++;
+                } elseif ($char === $quote) {
+                    if ($next === $quote) {
+                        $current .= $next; // doubled quote is an escaped quote
+                        $i++;
+                    } else {
+                        $quote = null;
+                    }
+                }
+                continue;
+            }
+
+            if (($char === '-' && $next === '-') || $char === '#') {
+                $end = strpos($sql, "\n", $i);
+                $i   = $end === false ? $length : $end;
+                $current .= "\n";
+                continue;
+            }
+            if ($char === '/' && $next === '*') {
+                $end = strpos($sql, '*/', $i + 2);
+                $i   = $end === false ? $length : $end + 1;
+                $current .= ' ';
+                continue;
+            }
+            if ($char === "'" || $char === '"' || $char === '`') {
+                $quote    = $char;
+                $current .= $char;
+                continue;
+            }
+            if ($char === ';') {
+                // Inside a trigger body, only the ';' after END closes it.
+                if (preg_match('/^\s*CREATE\s+(?:TEMP(?:ORARY)?\s+)?TRIGGER\b/i', $current)
+                    && !preg_match('/\bEND\s*$/i', $current)) {
+                    $current .= $char;
+                    continue;
+                }
+                if (trim($current) !== '') {
+                    $statements[] = trim($current);
+                }
+                $current = '';
+                continue;
+            }
+
+            $current .= $char;
+        }
+
+        if (trim($current) !== '') {
+            $statements[] = trim($current);
+        }
+
+        return $statements;
     }
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -281,10 +281,12 @@ class Logger
             if (!empty($context)) {
                 $entry['context'] = $context;
             }
-            $logLine = json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+            // Invalid UTF-8 (e.g. raw request input) is substituted, not fatal:
+            // json_encode() used to return false and the entry vanished.
+            $logLine = json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) . PHP_EOL;
         } else {
             // Legacy text format — backward-compatible with the original Logger
-            $contextString = !empty($context) ? ' ' . json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : '';
+            $contextString = !empty($context) ? ' ' . json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) : '';
             $cid = $this->correlationId !== null ? " [{$this->correlationId}]" : '';
             $logLine = "[{$timestamp}] [{$level}]{$cid} {$message}{$contextString}" . PHP_EOL;
         }

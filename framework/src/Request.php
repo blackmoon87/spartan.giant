@@ -116,9 +116,15 @@ class Request
      */
     public function isSecure(): bool
     {
-        return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || (($_SERVER['SERVER_PORT'] ?? 80) == 443)
-            || (strtolower($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+        if ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (($_SERVER['SERVER_PORT'] ?? 80) == 443)) {
+            return true;
+        }
+
+        // X-Forwarded-Proto is client-controlled: honour it only from a trusted proxy.
+        return self::$trustedProxies !== []
+            && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https'
+            && self::isTrustedProxy($_SERVER['REMOTE_ADDR'] ?? '');
     }
 
     /**
@@ -300,15 +306,24 @@ class Request
             return $remote;
         }
 
+        // Each proxy APPENDS the address it received the request from, so only
+        // the right-hand end of the chain is trustworthy: anything to the left
+        // was written by the client. Walk right-to-left past our own proxies;
+        // the first untrusted hop is the real client.
         $forwarded = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['HTTP_CLIENT_IP'] ?? '';
-        foreach (explode(',', $forwarded) as $candidate) {
+        $client    = $remote;
+        foreach (array_reverse(explode(',', $forwarded)) as $candidate) {
             $candidate = trim($candidate);
-            if ($candidate !== '' && filter_var($candidate, FILTER_VALIDATE_IP) !== false) {
-                return $candidate; // left-most entry = original client
+            if ($candidate === '' || filter_var($candidate, FILTER_VALIDATE_IP) === false) {
+                break; // malformed hop — stop at the last address we could verify
+            }
+            $client = $candidate;
+            if (!self::isTrustedProxy($candidate)) {
+                break;
             }
         }
 
-        return $remote;
+        return $client;
     }
 
     /**

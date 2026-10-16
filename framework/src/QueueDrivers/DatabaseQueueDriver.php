@@ -25,11 +25,18 @@ class DatabaseQueueDriver implements QueueDriverInterface
 
     public function push(string $event, string $listener, mixed $payload, int $maxAttempts = 3, string $onFailure = 'retry'): void
     {
-        $onFailure = in_array($onFailure, ['retry', 'stop', 'discard', 'bury'], true) ? $onFailure : 'retry';
+        // The jobs table declares on_failure ENUM('retry','stop'): 'discard'
+        // and 'bury' (both "do not retry") made the INSERT fail under MySQL
+        // strict mode. Unknown values keep falling back to 'retry'.
+        $onFailure = in_array($onFailure, ['stop', 'discard', 'bury'], true) ? 'stop' : 'retry';
 
+        // run_at is stamped by PHP, like every comparison against it in this
+        // driver. The column default (the database's CURRENT_TIMESTAMP) uses
+        // the DB server's timezone, which delayed or advanced new jobs
+        // whenever it differed from PHP's.
         $stmt = $this->db->prepare(
-            "INSERT INTO jobs (event, listener, payload, max_attempts, on_failure)
-             VALUES (?, ?, ?, ?, ?)"
+            "INSERT INTO jobs (event, listener, payload, max_attempts, on_failure, run_at)
+             VALUES (?, ?, ?, ?, ?, ?)"
         );
         $stmt->execute([
             $event,
@@ -37,6 +44,7 @@ class DatabaseQueueDriver implements QueueDriverInterface
             json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
             $maxAttempts,
             $onFailure,
+            date('Y-m-d H:i:s'),
         ]);
     }
 
@@ -109,15 +117,36 @@ class DatabaseQueueDriver implements QueueDriverInterface
         )->execute([$attempts, $runAt, $error, $id]);
     }
 
+    /**
+     * Refresh the claim on jobs this worker holds but has not started yet.
+     *
+     * @param list<int|string> $ids
+     */
+    public function touch(array $ids): void
+    {
+        if ($ids === []) {
+            return;
+        }
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $this->db->prepare(
+            "UPDATE jobs SET run_at = ? WHERE status = 'processing' AND id IN ({$placeholders})"
+        )->execute([date('Y-m-d H:i:s'), ...$ids]);
+    }
+
     public function reclaimStale(int $staleAfter = 600): int
     {
         $cutoff = date('Y-m-d H:i:s', time() - max(1, $staleAfter));
 
         try {
+            // A reclaim counts as an attempt: a job that kills its worker
+            // (fatal error, OOM) otherwise looped forever. `status` is
+            // assigned before `attempts` because MySQL evaluates SET
+            // left-to-right with already-updated values.
             $stmt = $this->db->prepare(
                 "UPDATE jobs
-                    SET status = 'pending',
-                        error  = 'Reclaimed: worker did not finish the job.'
+                    SET status   = CASE WHEN attempts + 1 >= max_attempts THEN 'failed' ELSE 'pending' END,
+                        attempts = attempts + 1,
+                        error    = 'Reclaimed: worker did not finish the job.'
                   WHERE status = 'processing'
                     AND run_at <= ?"
             );

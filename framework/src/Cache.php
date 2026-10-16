@@ -92,8 +92,12 @@ class Cache
      */
     public static function remember(string $key, int $ttl, callable $callback): mixed
     {
-        if (self::has($key)) {
-            return self::get($key);
+        // One read instead of has() + get(): half the I/O, and no window in
+        // which the entry can expire between the two calls.
+        $miss  = self::missMarker();
+        $value = self::driver()->get($key, $miss);
+        if ($value !== $miss) {
+            return $value;
         }
 
         $value = $callback();
@@ -142,6 +146,16 @@ class Cache
     public static function tags(array $tags): TaggedCache
     {
         return new TaggedCache(self::driver(), $tags);
+    }
+
+    /**
+     * Unique object passed as get()'s default to tell "missing" apart from a
+     * cached null/false.
+     */
+    public static function missMarker(): object
+    {
+        static $marker = null;
+        return $marker ??= new \stdClass();
     }
 
     private static function driver(): CacheDriverInterface

@@ -20,6 +20,13 @@ class Session implements SessionInterface
      */
     public function start(?Request $request = null): void
     {
+        // A previous request's session in this long-lived worker process: its
+        // data must never reach the current request — not even when headers
+        // are already out and a new session cannot be started.
+        if (session_status() === PHP_SESSION_NONE && session_id() !== '') {
+            $_SESSION = [];
+        }
+
         if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
             // Harden the session cookie before starting the session:
             //   HttpOnly  — JavaScript (document.cookie) cannot read the session ID
@@ -31,6 +38,14 @@ class Session implements SessionInterface
             } else {
                 $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
                         || (($_SERVER['SERVER_PORT'] ?? 80) == 443);
+            }
+
+            // PHP keeps the previous session ID after session_write_close().
+            // In a long-lived worker that ID would be resumed by the NEXT
+            // request — even one with no cookie — handing it someone else's
+            // session. Clearing it makes session_start() read this request's cookie.
+            if (session_id() !== '') {
+                session_id('');
             }
 
             session_set_cookie_params([

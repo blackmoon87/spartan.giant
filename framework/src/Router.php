@@ -41,6 +41,13 @@ class Router
     /** Methods whose bucket index is currently built and valid. */
     protected array $bucketsBuilt = [];
 
+    /**
+     * Resolved middleware stacks keyed by their string definitions, so
+     * "alias:arg" parsing and group expansion happen once per distinct stack
+     * instead of on every request. Cleared whenever groups or aliases change.
+     */
+    protected array $resolvedStacks = [];
+
 
 
     public function __construct(Request $request, Response $response)
@@ -63,6 +70,7 @@ class Router
     public function aliasMiddleware(string $name, string $class): void
     {
         $this->middlewareAliases[$name] = $class;
+        $this->resolvedStacks = [];
     }
 
     /**
@@ -87,6 +95,7 @@ class Router
     public function middlewareGroup(string $name, array $middlewares): void
     {
         $this->middlewareGroups[$name] = $middlewares;
+        $this->resolvedStacks = [];
     }
 
     /**
@@ -171,10 +180,11 @@ class Router
      */
     public function redirect(string $from, string $to, int $status = 302): void
     {
-        $response = $this->response;
-        $this->get($from, static function () use ($response, $to, $status): void {
-            $response->setStatusCode($status);
-            $response->redirect($to);
+        // Resolve the response at dispatch time, never at registration: worker
+        // mode swaps in a fresh Response per request via setResponse().
+        $this->get($from, function () use ($to, $status): void {
+            $this->response->setStatusCode($status);
+            $this->response->redirect($to);
         });
     }
 
@@ -226,8 +236,9 @@ class Router
                     continue;
                 }
 
+                // Literal segments are quoted so "." or "+" in a route match only themselves.
                 $pattern = $this->patternCache[$routeKey]
-                    ??= '#^' . preg_replace('/\{([a-zA-Z0-9_]+)\}/', '(?P<$1>[^/]+)', $routeKey) . '$#';
+                    ??= '#^' . preg_replace('/\\\\\{([a-zA-Z0-9_]+)\\\\\}/', '(?P<$1>[^/]+)', preg_quote($routeKey, '#')) . '$#';
 
                 if (preg_match($pattern, $path, $matches)) {
                     $params    = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
@@ -240,26 +251,40 @@ class Router
 
         // Global middlewares run on EVERY request — including unmatched ones,
         // so security headers and rate limits still apply to 404 traffic.
-        if ($this->runMiddlewares($this->globalMiddlewares)) {
-            return $this->response;
-        }
-
+        // They wrap the route's own middlewares in ONE pipeline (global
+        // outermost), with the route — or fallback / 404 page — as its core.
         if ($routeData === false) {
-            if ($this->fallbackHandler !== null) {
-                if ($this->runMiddlewares($this->fallbackHandler['middlewares'])) {
-                    return $this->response;
-                }
-                return $this->executeCallback($this->fallbackHandler['callback'], []);
+            $fallback = $this->fallbackHandler;
+            if ($fallback === null) {
+                return $this->runMiddlewares($this->globalMiddlewares, function () {
+                    $this->response->setStatusCode(404);
+                    return Application::$app->view->render('error_404', ['message' => 'The page you requested was not found.']);
+                });
             }
-            $this->response->setStatusCode(404);
-            return Application::$app->view->render('error_404', ['message' => 'The page you requested was not found.']);
+
+            return $this->runMiddlewares(
+                [...$this->globalMiddlewares, ...$fallback['middlewares']],
+                fn() => $this->executeCallback($fallback['callback'], [])
+            );
         }
 
-        // Execute route middlewares
-        if ($this->runMiddlewares($routeData['middlewares'])) {
-            return $this->response;
+        $stack = $this->globalMiddlewares === []
+            ? $routeData['middlewares']
+            : [...$this->globalMiddlewares, ...$routeData['middlewares']];
+
+        // No middleware anywhere: skip building the pipeline (hot path).
+        if ($stack === []) {
+            return $this->executeRoute($routeData, $method, $routePath, $params);
         }
 
+        return $this->runMiddlewares($stack, fn() => $this->executeRoute($routeData, $method, $routePath, $params));
+    }
+
+    /**
+     * Bind route parameters to the callback and execute it.
+     */
+    protected function executeRoute(array $routeData, string $method, string $routePath, array $params): mixed
+    {
         // Route params arrive keyed by placeholder name. Arguments are always
         // passed positionally (named-argument dispatch is both slower and
         // fatal when a closure's parameter names differ), so work out the
@@ -316,32 +341,38 @@ class Router
     }
 
     /**
-     * Run a middleware stack using the onion pipeline pattern.
+     * Run a middleware stack around $core using the onion pipeline pattern.
      *
-     * Builds a nested callable chain from inside-out: the innermost
-     * callable is a no-op, and each middleware wraps the next via its
-     * handle($request, $response, $next) method.
+     * Builds a nested callable chain from inside-out: the innermost callable
+     * is $core (the route), and each middleware wraps the next via its
+     * handle($request, $response, $next) method — so code after $next() runs
+     * AFTER the route and receives its result.
      *
-     * Returns true when the chain terminated the request (redirect, content,
-     * or an error status), meaning the route callback must NOT run.
+     * The route never runs when the chain stops short: a middleware returned
+     * without calling $next(), or it terminated the request (redirect,
+     * content, or an error status). The prepared Response is returned then.
      *
      * Backward-compatible: middlewares that only override execute() work
      * unchanged because Middleware::handle() calls execute() then $next().
      */
-    protected function runMiddlewares(array $middlewares): bool
+    protected function runMiddlewares(array $middlewares, \Closure $core): mixed
     {
         if ($middlewares === []) {
-            return false;
+            return $core();
         }
 
-        $resolved = $this->resolveMiddlewares($middlewares);
+        $resolved = $this->resolveStack($middlewares);
         $request  = $this->request;
         $response = $this->response;
+        $reached  = false;
 
-        // The innermost handler is a no-op — it just returns null to let
-        // the route callback run after the pipeline completes.
-        $pipeline = function () {
-            return null;
+        $pipeline = function () use ($core, $response, &$reached) {
+            // A middleware may reject the request and still call $next().
+            if ($response->isTerminated()) {
+                return $response;
+            }
+            $reached = true;
+            return $core();
         };
 
         // Build the onion from inside-out: the LAST middleware in the list
@@ -367,17 +398,26 @@ class Router
             };
         }
 
-        // Execute the pipeline
-        $pipeline();
+        $result = $pipeline();
 
-        // Check if any middleware terminated the request
-        if ($response->getRedirectUrl() !== null
-            || $response->getContent() !== null
-            || $response->getStatusCode() >= 400) {
-            return true;
+        // Short-circuited: keep a value the middleware produced itself (e.g. a
+        // cached body), otherwise hand back the response it prepared.
+        return $reached ? $result : ($result ?? $response);
+    }
+
+    /**
+     * resolveMiddlewares(), memoised for stacks made only of strings (the
+     * normal case); stacks holding arrays or objects are resolved each time.
+     */
+    protected function resolveStack(array $middlewares): array
+    {
+        foreach ($middlewares as $middleware) {
+            if (!is_string($middleware)) {
+                return $this->resolveMiddlewares($middlewares);
+            }
         }
 
-        return false;
+        return $this->resolvedStacks[implode("\0", $middlewares)] ??= $this->resolveMiddlewares($middlewares);
     }
 
     /**
@@ -593,26 +633,9 @@ class Router
             return true;
         }
 
-        // Resolve authenticated user
-        $user = null;
-        if (Application::$app->container->has('auth_user')) {
-            $user = Application::$app->container->make('auth_user');
-        } else {
-            $userId = Application::$app->session->get('user_id');
-            if ($userId) {
-                $userClass = 'App\\Models\\User';
-                if (class_exists($userClass)) {
-                    try {
-                        $userModel = new $userClass();
-                        $user = $userModel->findInstance($userId);
-                        if ($user) {
-                            Application::$app->container->instance('auth_user', $user);
-                        }
-                    } catch (\Throwable $e) {
-                    }
-                }
-            }
-        }
+        // Same resolution as views and Gate: honours config('auth.model') and a
+        // custom AuthInterface instead of a hard-coded App\Models\User.
+        $user = Gate::resolveUser();
 
         if (!$user) {
             $this->response->setStatusCode(401);
@@ -682,6 +705,7 @@ class Router
             if (is_array($data)) {
                 $this->routes = $data['routes'] ?? [];
                 $this->middlewareGroups = $data['middlewareGroups'] ?? [];
+                $this->resolvedStacks = [];
                 $this->csrfExclusions = $data['csrfExclusions'] ?? [];
                 $this->patternCache = [];
                 $this->bucketsBuilt = [];

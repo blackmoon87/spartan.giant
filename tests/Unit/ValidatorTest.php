@@ -58,7 +58,6 @@ final class ValidatorTest extends TestCase
             'nullable still checks a value'     => ['nullable|email', 'bad@@', false],
             'chained rules pass together'       => ['required|email|max:50', 'ada@x.io', true],
             'chained rules fail on one'         => ['required|email|max:5', 'ada@x.io', false],
-            'unknown rules are ignored'         => ['bogus_rule', 'x', true],
             'confirmed matches'                 => ['confirmed', 'secret', true,  ['field_confirmation' => 'secret']],
             'confirmed mismatches'              => ['confirmed', 'secret', false, ['field_confirmation' => 'other']],
         ];

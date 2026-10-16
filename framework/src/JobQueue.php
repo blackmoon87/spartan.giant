@@ -30,8 +30,16 @@ class JobQueue
     /**
      * Accepts either a PDO instance (backward-compat) or a QueueDriverInterface.
      */
-    public function __construct(PDO|QueueDriverInterface $backend)
+    /**
+     * @param int $staleAfter Seconds after which a claimed job counts as
+     *                        abandoned and is reclaimed by another worker.
+     *                        Delivery is at-least-once: set this above your
+     *                        longest job's runtime (QUEUE_STALE_AFTER), and
+     *                        keep jobs idempotent.
+     */
+    public function __construct(PDO|QueueDriverInterface $backend, private int $staleAfter = 600)
     {
+        $this->staleAfter = max(1, $staleAfter);
         if ($backend instanceof QueueDriverInterface) {
             $this->driver = $backend;
         } else {
@@ -72,15 +80,27 @@ class JobQueue
      */
     public function processPending(): int
     {
-        $this->reclaimStale();
+        $this->reclaimStale($this->staleAfter);
 
         $jobs = $this->driver->fetchPending();
+        $touchInterval = max(1, intdiv($this->staleAfter, 10));
 
-        foreach ($jobs as $job) {
+        // The whole batch is claimed at once. If it takes long to work
+        // through, jobs still waiting their turn would look abandoned to
+        // another worker's reclaimStale() and run twice — so periodically
+        // re-stamp the claim on the jobs not yet started.
+        $lastTouched = time();
+        $total       = count($jobs);
+
+        foreach ($jobs as $i => $job) {
+            if (time() - $lastTouched >= $touchInterval && method_exists($this->driver, 'touch')) {
+                $this->driver->touch(array_column(array_slice($jobs, $i), 'id'));
+                $lastTouched = time();
+            }
             $this->runJob($job);
         }
 
-        return count($jobs);
+        return $total;
     }
 
     /**

@@ -118,6 +118,9 @@ class Application
                     $this->response->send();
                 }
             }
+        } catch (HttpResponseException $e) {
+            // A deliberate early answer (FormRequest failure, ...), not an error.
+            $e->getResponse()->send();
         } catch (\Throwable $e) {
             $handler = $this->container->has(ExceptionHandler::class)
                 ? $this->container->make(ExceptionHandler::class)
@@ -130,9 +133,7 @@ class Application
 
             // Release the session file lock so concurrent requests from the
             // same browser (AJAX polling, navigation) are never blocked.
-            if (method_exists($this->session, 'close')) {
-                $this->session->close();
-            }
+            $this->session->close();
         }
     }
 
@@ -164,6 +165,11 @@ class Application
             $this->session->set('_csrf_token', bin2hex(random_bytes(32)));
         }
 
+        // The locale lives in THIS request's session; boot only saw the first one.
+        Translation\Translator::getInstance()->setLocale(
+            $this->session->get('locale', $this->config['locale']['default'] ?? 'en')
+        );
+
         $this->run();
 
         // Reset transient state post execution to prevent memory accumulation
@@ -182,11 +188,9 @@ class Application
     {
         $this->session->removeFlashMessages();
 
-        // SessionInterface does not mandate the worker-mode lifecycle hooks,
-        // so a custom implementation may legitimately lack them.
-        if (method_exists($this->session, 'close')) {
-            $this->session->close();
-        }
+        // close() is part of SessionInterface; start() is not, and is
+        // probed for in handleRequest().
+        $this->session->close();
 
         // Drop the resolved-identity cache — never share it across requests.
         $this->container->forget('auth_user');
@@ -203,7 +207,8 @@ class Application
 
         $this->request->resetState();
 
-        // Reset translator loaded translations and re-read locale from session
+        // Drop loaded translations; handleRequest() re-reads the locale from
+        // the next request's session.
         Translation\Translator::getInstance()->resetState();
 
         // Health-check open connections instead of tearing them all down: a
@@ -211,6 +216,7 @@ class Application
         // left exactly as-is. This is what keeps the database connection warm
         // across requests in worker mode instead of reconnecting every time.
         $this->connections->recycleStale();
+        $this->connections->resetStickiness();
         if (!$this->connections->isConnected('default')) {
             $this->dbInstance = null;
         }

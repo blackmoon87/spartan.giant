@@ -87,6 +87,9 @@ return [
     ],
     'queue' => [
         'driver' => $_ENV['QUEUE_DRIVER'] ?? 'database',  // 'database' | 'redis'
+        // Seconds before a claimed job is considered abandoned and retried by
+        // another worker. Must exceed your longest job's runtime.
+        'stale_after' => (int) ($_ENV['QUEUE_STALE_AFTER'] ?? 600),
     ],
     'logging' => [
         'format'    => $_ENV['LOG_FORMAT']  ?? 'text',     // 'text' | 'json'
@@ -98,7 +101,11 @@ return [
         'default_window' => (int) ($_ENV['RATE_LIMIT_WINDOW'] ?? 60),
     ],
     'storage' => [
-        'uploads' => $_ENV['UPLOAD_PATH'] ?? dirname(__DIR__) . '/public/uploads',
+        // Outside the web root: an uploaded file is never directly reachable
+        // (or executable) by URL. Serve it through a controller that checks
+        // access. Point UPLOAD_PATH at public/uploads only for files that are
+        // meant to be public, such as product images.
+        'uploads' => ($_ENV['UPLOAD_PATH'] ?? '') !== '' ? $_ENV['UPLOAD_PATH'] : dirname(__DIR__) . '/storage/uploads',
     ],
     'views' => [
         'cache_enabled' => ($_ENV['VIEW_CACHE_ENABLED'] ?? 'false') === 'true',

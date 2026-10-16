@@ -11,6 +11,9 @@ class ExceptionHandler
      */
     public function handle(\Throwable $e, Request $request, Response $response, array $config): void
     {
+        // Drop whatever the failed request had prepared — a Location header or
+        // a half-built body must not be sent alongside the 500 page.
+        $response->reset();
         $response->setStatusCode(500);
 
         if (isset(Application::$app->logger)) {

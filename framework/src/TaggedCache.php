@@ -79,8 +79,10 @@ class TaggedCache
      */
     public function remember(string $key, int $ttl, callable $callback): mixed
     {
-        if ($this->driver->has($key)) {
-            return $this->driver->get($key);
+        $miss  = Cache::missMarker();
+        $value = $this->driver->get($key, $miss);
+        if ($value !== $miss) {
+            return $value;
         }
 
         $value = $callback();

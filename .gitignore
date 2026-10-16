@@ -18,6 +18,9 @@
 
 # Databases
 *.sqlite*
+# Example demo databases are generated on first request
+examples/*/database/*.db
+examples/*/database/*.building
 examples/*/storage/*.sqlite*
 
 # OS
@@ -31,6 +34,7 @@ Thumbs.db
 
 # Uploads
 /public/uploads/
+/storage/uploads/
 /tests/sample_project/public/uploads/
 
 # TurboQuantex

@@ -23,6 +23,13 @@ abstract class Middleware
     public function handle(Request $request, Response $response, callable $next): mixed
     {
         $this->execute($request, $response);
+
+        // A guard that rejected the request stops the chain here, so inner
+        // middlewares (and their side effects) never run.
+        if ($response->isTerminated()) {
+            return $response;
+        }
+
         return $next();
     }
 

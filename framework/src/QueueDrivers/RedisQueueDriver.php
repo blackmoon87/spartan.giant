@@ -14,6 +14,8 @@ use Spartan\QueueDriverInterface;
  * Keys:
  *   spartan:queue:pending    — LIST of JSON-encoded job payloads
  *   spartan:queue:processing — HASH of in-flight jobs keyed by job ID
+ *   spartan:queue:claimed_at — ZSET of in-flight job IDs scored by claim time
+ *   spartan:queue:delayed    — ZSET of retries waiting out their backoff, scored by run time
  *   spartan:queue:failed     — LIST of permanently failed jobs
  *   spartan:queue:id         — auto-increment counter for job IDs
  *
@@ -30,6 +32,26 @@ class RedisQueueDriver implements QueueDriverInterface
     private const KEY_PENDING    = self::PREFIX . 'pending';
     private const KEY_PROCESSING = self::PREFIX . 'processing';
     private const KEY_FAILED     = self::PREFIX . 'failed';
+    private const KEY_DELAYED    = self::PREFIX . 'delayed';
+    private const KEY_CLAIMED_AT = self::PREFIX . 'claimed_at';
+
+    /**
+     * Pop a job and record it as in-flight in ONE atomic step. RPOP followed
+     * by a separate HSET lost the job outright if the worker died between
+     * the two calls. The payload is stored byte-for-byte (Lua only reads the
+     * id; re-encoding with cjson could alter numbers or empty arrays).
+     * Returns the raw job, '' for a malformed entry (dropped), or nil.
+     */
+    private const CLAIM_SCRIPT = <<<'LUA'
+local raw = redis.call('RPOP', KEYS[1])
+if not raw then return false end
+local ok, job = pcall(cjson.decode, raw)
+if not ok or type(job) ~= 'table' or job['id'] == nil then return '' end
+local id = tostring(job['id'])
+redis.call('HSET', KEYS[2], id, raw)
+redis.call('ZADD', KEYS[3], ARGV[1], id)
+return raw
+LUA;
     private const KEY_ID         = self::PREFIX . 'id';
 
     public function __construct(\Redis $redis)
@@ -88,26 +110,23 @@ class RedisQueueDriver implements QueueDriverInterface
     {
         $jobs = [];
 
-        for ($i = 0; $i < $limit; $i++) {
-            // RPOPLPUSH is deprecated in Redis 6.2+; use LMOVE in production.
-            // For broad compatibility, we use RPOP + HSET.
-            $raw = $this->redis->rPop(self::KEY_PENDING);
+        $this->promoteDueJobs($limit);
 
-            if ($raw === false) {
-                break;
+        for ($i = 0; $i < $limit; $i++) {
+            $now = time();
+            $raw = $this->redis->eval(self::CLAIM_SCRIPT, [self::KEY_PENDING, self::KEY_PROCESSING, self::KEY_CLAIMED_AT, $now], 3);
+
+            if (!is_string($raw)) {
+                break; // queue empty
             }
 
-            $job = json_decode($raw, true);
-
+            $job = $raw === '' ? null : json_decode($raw, true);
             if (!is_array($job) || !isset($job['id'])) {
                 continue;
             }
 
-            // Move to processing set with timestamp for stale detection
-            $job['status']       = 'processing';
-            $job['processing_at'] = time();
-            $this->redis->hSet(self::KEY_PROCESSING, (string) $job['id'], json_encode($job));
-
+            $job['status']        = 'processing';
+            $job['processing_at'] = $now;
             $jobs[] = $job;
         }
 
@@ -116,7 +135,17 @@ class RedisQueueDriver implements QueueDriverInterface
 
     public function markDone(int|string $id): void
     {
-        $this->redis->hDel(self::KEY_PROCESSING, (string) $id);
+        $this->release($id);
+    }
+
+    /**
+     * Drop a job from the in-flight structures. Returns true for the one
+     * caller that actually removed it.
+     */
+    private function release(int|string $id): bool
+    {
+        $this->redis->zRem(self::KEY_CLAIMED_AT, (string) $id);
+        return $this->redis->hDel(self::KEY_PROCESSING, (string) $id) === 1;
     }
 
     public function markFailed(int|string $id, string $error): void
@@ -132,7 +161,7 @@ class RedisQueueDriver implements QueueDriverInterface
             }
         }
 
-        $this->redis->hDel(self::KEY_PROCESSING, (string) $id);
+        $this->release($id);
     }
 
     public function scheduleRetry(int|string $id, int $attempts, string $error): void
@@ -156,9 +185,48 @@ class RedisQueueDriver implements QueueDriverInterface
         $job['status']   = 'pending';
         $job['run_at']   = date('Y-m-d H:i:s', time() + $delaySecs);
 
-        // Remove from processing and push back to pending
-        $this->redis->hDel(self::KEY_PROCESSING, (string) $id);
-        $this->redis->lPush(self::KEY_PENDING, json_encode($job));
+        // Remove from processing; a delayed retry waits in the delayed set
+        // until its backoff has elapsed (it was previously re-queued at once,
+        // so the documented backoff never happened).
+        $this->release($id);
+        if ($delaySecs > 0) {
+            $this->redis->zAdd(self::KEY_DELAYED, time() + $delaySecs, json_encode($job));
+        } else {
+            $this->redis->lPush(self::KEY_PENDING, json_encode($job));
+        }
+    }
+
+    /**
+     * Move delayed retries whose run time has arrived onto the pending list.
+     * zRem() returns 1 for exactly one caller, so concurrent workers never
+     * promote the same job twice.
+     */
+    private function promoteDueJobs(int $limit): void
+    {
+        $due = $this->redis->zRangeByScore(self::KEY_DELAYED, '-inf', (string) time(), ['limit' => [0, $limit]]);
+        foreach ($due ?: [] as $raw) {
+            if ($this->redis->zRem(self::KEY_DELAYED, $raw) === 1) {
+                $this->redis->lPush(self::KEY_PENDING, $raw);
+            }
+        }
+    }
+
+    /**
+     * Refresh the claim on jobs this worker holds but has not started yet.
+     *
+     * @param list<int|string> $ids
+     */
+    public function touch(array $ids): void
+    {
+        $args = [];
+        foreach ($ids as $id) {
+            $args[] = time();
+            $args[] = (string) $id;
+        }
+        if ($args !== []) {
+            // XX: only refresh jobs still in flight, never resurrect finished ones.
+            $this->redis->zAdd(self::KEY_CLAIMED_AT, ['XX'], ...$args);
+        }
     }
 
     public function reclaimStale(int $staleAfter = 600): int
@@ -166,22 +234,34 @@ class RedisQueueDriver implements QueueDriverInterface
         $now       = time();
         $reclaimed = 0;
         $all       = $this->redis->hGetAll(self::KEY_PROCESSING);
+        $claimedAt = $this->redis->zRange(self::KEY_CLAIMED_AT, 0, -1, ['withscores' => true]) ?: [];
 
         foreach ($all as $id => $raw) {
             $job = json_decode($raw, true);
 
             if (!is_array($job)) {
-                $this->redis->hDel(self::KEY_PROCESSING, $id);
+                $this->release($id);
                 continue;
             }
 
-            $processingAt = $job['processing_at'] ?? 0;
+            // Claim time from the sorted set; jobs claimed before this
+            // driver version carry it inside the payload instead.
+            $processingAt = (int) ($claimedAt[(string) $id] ?? $job['processing_at'] ?? 0);
 
             if (($now - $processingAt) >= $staleAfter) {
-                $job['status'] = 'pending';
-                $job['error']  = 'Reclaimed: worker did not finish the job.';
-                $this->redis->hDel(self::KEY_PROCESSING, $id);
-                $this->redis->lPush(self::KEY_PENDING, json_encode($job));
+                // Counts as an attempt, so a job that kills its worker stops eventually.
+                $job['attempts'] = (int) ($job['attempts'] ?? 0) + 1;
+                $job['error']    = 'Reclaimed: worker did not finish the job.';
+                if (!$this->release($id)) {
+                    continue; // finished or reclaimed by another worker meanwhile
+                }
+                if ($job['attempts'] >= (int) ($job['max_attempts'] ?? 3)) {
+                    $job['status'] = 'failed';
+                    $this->redis->lPush(self::KEY_FAILED, json_encode($job));
+                } else {
+                    $job['status'] = 'pending';
+                    $this->redis->lPush(self::KEY_PENDING, json_encode($job));
+                }
                 $reclaimed++;
             }
         }
