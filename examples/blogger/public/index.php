@@ -63,6 +63,28 @@ $config['base_path'] ??= dirname(__DIR__);
 // Instantiate App
 $app = new Application($config);
 
+// ─── First run: build the SQLite demo database ───────────────────────────────
+// The demo database is generated, not committed. When it is missing it is
+// built from database/migrations + database/seed.sql into a temp file, then
+// renamed into place so a concurrent request never opens a half-built one.
+// Once it exists this costs a single is_file() check.
+if (($config['db']['connection'] ?? '') === 'sqlite' && ($config['db']['database'] ?? '') !== '') {
+    $dbFile = str_starts_with($config['db']['database'], '/')
+        ? $config['db']['database']
+        : dirname(__DIR__) . '/' . $config['db']['database'];
+
+    if (!is_file($dbFile)) {
+        $tmp = $dbFile . '.' . getmypid() . '.building';
+        $pdo = new PDO('sqlite:' . $tmp, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        ob_start();
+        (new \Spartan\Database\Migrator($pdo, dirname(__DIR__) . '/database/migrations'))->migrate();
+        ob_end_clean();
+        $pdo->exec((string) file_get_contents(dirname(__DIR__) . '/database/seed.sql'));
+        $pdo = null;
+        rename($tmp, $dbFile);
+    }
+}
+
 // ─── Register Middleware ──────────────────────────────────────────────────────
 $app->router->aliasMiddleware('auth', \Spartan\Middlewares\AuthMiddleware::class);
 $app->router->aliasMiddleware('csrf', \Spartan\Middlewares\CsrfMiddleware::class);
