@@ -35,13 +35,14 @@ Thumbs.db
 # Uploads
 /public/uploads/
 /storage/uploads/
-/tests/sample_project/public/uploads/
 
-# TurboQuantex
+# PHPUnit
+/.phpunit.cache/
+
+# Local tooling (not part of the repo)
 .TurboQuantex/
 codebase_index.tq
-/vendor/
-/.phpunit.cache/
+/htmlCreator/
 
 # Composer installs (examples resolve the framework through a path repository)
 examples/*/vendor/
@@ -49,7 +50,3 @@ examples/*/storage/views/*
 !examples/*/storage/views/.gitkeep
 examples/*/storage/cache/*
 !examples/*/storage/cache/.gitkeep
-
-# Sub-projects
-/htmlCreator/
-

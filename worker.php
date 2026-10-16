@@ -21,7 +21,7 @@ declare(strict_types=1);
  *   * * * * * php /var/www/bunzz/MVC.Zero/worker.php >> /var/log/mvc_worker.log 2>&1
  *
  * ─── Prerequisites ────────────────────────────────────────────────────────────
- *   1. Run storage/jobs.sql to create the jobs table.
+ *   1. Run `php spartan migrate` to create the jobs table.
  *   2. Configure DB credentials in .env.
  * ─────────────────────────────────────────────────────────────────────────────
  */

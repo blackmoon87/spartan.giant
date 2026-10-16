@@ -29,7 +29,7 @@ namespace Spartan;
  * Callable listeners are always sync (async requires a class name).
  *
  * Prerequisites for async:
- *   - Run storage/jobs.sql to create the jobs table.
+ *   - Run `php spartan migrate` to create the jobs table.
  *   - Run worker.php (via cron or as a daemon).
  */
 class EventDispatcher

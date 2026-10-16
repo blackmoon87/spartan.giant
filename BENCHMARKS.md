@@ -27,13 +27,10 @@ php tests/stress_test.php
 # 2. 1,000,000 Complex DB Operations & Model Hydration Benchmark
 php tests/benchmark_1m_db.php
 
-# 3. Component Comparison Benchmark
-php tests/compare_bench.php
-
-# 4. Enterprise Application Stress Test (Blogger Edition — 23 Stages, 1.74M ops)
+# 3. Enterprise Application Stress Test (Blogger Edition — 23 Stages, 1.74M ops)
 php examples/blogger/heavy_stress_test.php
 
-# 5. Correctness Test Suite
+# 4. Correctness Test Suite
 vendor/bin/phpunit
 ```
 
