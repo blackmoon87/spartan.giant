@@ -164,10 +164,8 @@ php spartan worker --loop
 ├── database/
 │   └── migrations/             # Dialect-aware SQL migrations
 ├── examples/
-│   ├── shop/                   # Example 1: E-commerce Store
-│   ├── blogger/                # Example 2: Enterprise Publishing Platform
-│   ├── taskforge/              # Example 3: 100% Feature Verification App (36/36 tests)
-│   └── css_showcase/           # Example 4: Multi-CSS Framework Integration (Tailwind, Open Props, Vanilla)
+│   ├── blogger/                # Example 1: Enterprise Publishing Platform (24/24 tests)
+│   └── taskforge/              # Example 2: 100% Feature Verification App (36/36 tests)
 ├── public/
 │   ├── .htaccess               # Apache URL rewriting
 │   └── index.php               # Front controller entry point
@@ -246,18 +244,6 @@ Glassmorphic publication platform featuring article analytics, comment managemen
 | Home Page | Article Detail Page |
 |---|---|
 | ![Blogger Home](docs/screenshots/blogger_home_v3.png) | ![Blogger Post](docs/screenshots/blogger_post_v3.png) |
-
-### 3. Spartan Shop — E-Commerce Engine (`examples/shop`)
-Production e-commerce storefront with shopping cart transactions, product listings, and order checkout pipelines.
-
-![Shop Home](docs/screenshots/shop_home_v3.png)
-
-### 4. CSS Multi-Support & Interactive Motion Showcase (`examples/css_showcase`)
-High-end UI component suite rendering Tailwind CSS, Open Props, auto-advancing carousel sliders, CSS shimmer keyframe loaders, and responsive aspect-ratio media galleries.
-
-| Interactive Sliders & Keyframe Motion | Tailwind CSS Component Suite |
-|---|---|
-| ![Interactive Motion](docs/screenshots/css_motion_interactive_v3.png) | ![Tailwind Suite](docs/screenshots/css_tailwind_suite_v3.png) |
 
 ---
 
@@ -548,7 +534,7 @@ public function store(StorePostRequest $request)
 
 ### Blade Directives & View Engine
 
-Spartan features a lightweight, native Blade compiler (`View.php`) supporting dot-notation view paths (e.g. `shop.partials.product_grid` or `blog/show`) and built-in Blade directives:
+Spartan features a lightweight, native Blade compiler (`View.php`) supporting dot-notation view paths (e.g. `blog.partials.card` or `blog/show`) and built-in Blade directives:
 
 | Directive | Compiled Output / Description |
 |---|---|
@@ -609,17 +595,21 @@ echo \Carbon\Carbon::now()->subMinutes(15)->diffForHumans();
 
 ## Example Applications
 
-Spartan includes two full-fledged, production-ready example applications in the `examples/` directory:
+Spartan includes two full example applications in the `examples/` directory. Each
+builds its SQLite demo database from its own migrations and seed data on the first
+request — no setup step. Every demo user's password is `password`.
 
-### 1. E-Commerce Storefront ([examples/shop](file:///Users/blackmoon/Desktop/working/spartan/examples/shop))
-- Features: Product catalog, cart management, atomic DB transactions checkout, stock deduction, HTMX product search, REST JSON API endpoints, and glassmorphic UI.
-- Run tests: `php examples/shop/test.php` (15/15 passed).
-- Run server: `cd examples/shop && php -S localhost:8085 -t public`
-
-### 2. Enterprise Blogger Platform ([examples/blogger](file:///Users/blackmoon/Desktop/working/spartan/examples/blogger))
+### 1. Enterprise Blogger Platform ([examples/blogger](examples/blogger))
 - Features: Article publishing, category filtering, HTMX live search, article claps/likes, newsletter subscriptions, real-time analytics API, audit logs, and author publishing portal protected by `#[RequireRole('author')]`.
 - Run tests: `php examples/blogger/test.php` (24/24 passed).
 - Run server: `cd examples/blogger && php -S localhost:8086 -t public`
+- Log in as `marcus@blogger.com` (author) or `elena@blogger.com` (admin).
+
+### 2. TaskForge — Feature Verification App ([examples/taskforge](examples/taskforge))
+- Features: Projects and tasks with RBAC, policies, DI container, events, queue, cache, validation, Blade layouts and inline sections — one automated check per framework feature.
+- Run tests: `php examples/taskforge/test.php` (36/36 passed).
+- Run server: `cd examples/taskforge && php -S localhost:8087 -t public`
+- Log in as `alexei@taskforge.dev`.
 
 ---
 
@@ -628,14 +618,17 @@ Spartan includes two full-fledged, production-ready example applications in the 
 Spartan includes comprehensive, automated test suites verifying 100% of the kernel engine and application features:
 
 ```bash
-# 1. Independent Framework Kernel Test Suite (22/22 Passed)
-php tests/run_tests.php
+# 1. PHPUnit suite
+composer test
 
-# 2. E-Commerce Shop Example Test Suite (15/15 Passed)
-php examples/shop/test.php
+# 2. Independent Framework Kernel Test Suite (33/33 Passed)
+php tests/run_tests.php
 
 # 3. Enterprise Blogger Platform Test Suite (24/24 Passed)
 php examples/blogger/test.php
+
+# 4. TaskForge Feature Verification Suite (36/36 Passed)
+php examples/taskforge/test.php
 ```
 
 ---
