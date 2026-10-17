@@ -50,11 +50,26 @@ class DatabaseQueueDriver implements QueueDriverInterface
 
     public function fetchPending(int $limit = 50): array
     {
-        $this->db->beginTransaction();
+        $driver   = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $isSqlite = $driver === 'sqlite';
+
+        // SQLite: take the write lock up front. A deferred BEGIN reads first and
+        // then upgrades for the UPDATE; when two workers do that at once SQLite
+        // fails one immediately ("database is locked") rather than wait, as
+        // waiting could deadlock. BEGIN IMMEDIATE makes the second worker wait
+        // (busy timeout) for the first. PDO::beginTransaction() cannot issue it,
+        // so this transaction is opened and closed with plain SQL.
+        $started = false;
 
         try {
-            $driver    = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
-            $forUpdate = $driver === 'sqlite' ? '' : ' FOR UPDATE';
+            if ($isSqlite) {
+                $this->db->exec('BEGIN IMMEDIATE');
+            } else {
+                $this->db->beginTransaction();
+            }
+            $started = true;
+
+            $forUpdate = $isSqlite ? '' : ' FOR UPDATE';
             $now       = date('Y-m-d H:i:s');
 
             $stmt = $this->db->prepare(
@@ -75,10 +90,22 @@ class DatabaseQueueDriver implements QueueDriverInterface
                 )->execute([$now, ...$ids]);
             }
 
-            $this->db->commit();
+            if ($isSqlite) {
+                $this->db->exec('COMMIT');
+            } else {
+                $this->db->commit();
+            }
         } catch (Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
+            if ($started) {
+                try {
+                    if ($isSqlite) {
+                        $this->db->exec('ROLLBACK');
+                    } elseif ($this->db->inTransaction()) {
+                        $this->db->rollBack();
+                    }
+                } catch (Throwable) {
+                    // Already rolled back by the database; nothing left to undo.
+                }
             }
             error_log('[DatabaseQueueDriver] fetchPending failed: ' . $e->getMessage());
             return [];

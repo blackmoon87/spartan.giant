@@ -406,8 +406,7 @@ class QueryBuilder
         $this->limitVal = 1;
         [$sql, $bindings] = $this->buildSelect();
         $this->limitVal = $limit;
-        $stmt = $this->executeRead($sql, $bindings);
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        return $this->fetchOne($sql, $bindings) ?: null;
     }
 
     /**
@@ -435,7 +434,7 @@ class QueryBuilder
         // COUNT query (respects wheres + joins + groupBy + having)
         [$countSql, $bindings] = $this->buildCount();
 
-        $total = (int) ($this->executeRead($countSql, $bindings)->fetch(\PDO::FETCH_ASSOC)['cnt'] ?? 0);
+        $total = (int) ($this->fetchOne($countSql, $bindings)['cnt'] ?? 0);
 
         // Apply pagination bounds for this query only, then restore them.
         [$limit, $offset] = [$this->limitVal, $this->offsetVal];
@@ -468,8 +467,7 @@ class QueryBuilder
     public function count(): int
     {
         [$sql, $bindings] = $this->buildCount();
-        $stmt = $this->executeRead($sql, $bindings);
-        return (int) ($stmt->fetch(PDO::FETCH_ASSOC)['cnt'] ?? 0);
+        return (int) ($this->fetchOne($sql, $bindings)['cnt'] ?? 0);
     }
 
     /**
@@ -483,8 +481,7 @@ class QueryBuilder
         $clone->offsetVal = null;
         $clone->orderBys  = [];
         [$sql, $bindings] = $clone->buildSelect();
-        $stmt = $clone->executeRead($sql, $bindings);
-        return (bool) $stmt->fetchColumn();
+        return $clone->fetchOne($sql, $bindings) !== false;
     }
 
     /**
@@ -595,8 +592,13 @@ class QueryBuilder
         $stmt = $pdo->prepare($sql);
         self::bindTyped($stmt, $bindings);
         $stmt->execute();
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            yield $row;
+        try {
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                yield $row;
+            }
+        } finally {
+            // Release the read lock now, also when the caller stops early.
+            $stmt->closeCursor();
         }
     }
 
@@ -981,6 +983,27 @@ class QueryBuilder
      * Prepare a statement, reusing a cached PDOStatement for identical SQL on
      * the same connection instead of re-preparing it.
      */
+    /**
+     * Run a read and return its first row, then close the cursor.
+     *
+     * Statements are cached and reused. One that is left mid-result — first(),
+     * count(), exists() read a single row — stays active: on SQLite it keeps
+     * its read lock (or, in WAL mode, an old snapshot) for the rest of the
+     * process, so other connections' writes fail with "database is locked"
+     * and this connection's own later writes can fail outright.
+     *
+     * @return array<string, mixed>|false
+     */
+    private function fetchOne(string $sql, array $bindings): array|false
+    {
+        $stmt = $this->executeRead($sql, $bindings);
+        try {
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } finally {
+            $stmt->closeCursor();
+        }
+    }
+
     private function prepareCached(string $sql, PDO $pdo): \PDOStatement
     {
         $cache = self::$stmtCache ??= new \WeakMap();
