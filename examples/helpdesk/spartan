@@ -1,0 +1,357 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+if (PHP_SAPI !== 'cli') {
+    exit("This script can only be run from the command line.\n");
+}
+
+$autoloadPath = __DIR__ . '/vendor/autoload.php';
+$hasVendor    = file_exists($autoloadPath);
+if ($hasVendor) {
+    require_once $autoloadPath;
+}
+
+// PSR-4 fallback. The application namespace is always registered: composer.json
+// maps App\ only under autoload-dev (this repository is also the framework
+// package), so after `composer install --no-dev` Composer cannot find App\
+// classes. The framework is mapped too when vendor/ is absent. Composer's own
+// loader runs first; this only handles classes it could not find.
+$prefixes = ['App\\' => __DIR__ . '/src/'];
+if (!$hasVendor) {
+    $prefixes['Spartan\\'] = dirname(__DIR__, 2) . '/framework/src/';
+}
+spl_autoload_register(function (string $class) use ($prefixes): void {
+    foreach ($prefixes as $prefix => $baseDir) {
+        if (strncmp($prefix, $class, strlen($prefix)) !== 0) {
+            continue;
+        }
+        $file = $baseDir . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+        if (is_file($file)) {
+            require_once $file;
+        }
+        return;
+    }
+});
+if (!$hasVendor) {
+    require_once dirname(__DIR__, 2) . '/framework/src/helpers.php';
+}
+
+use Spartan\Application;
+use Spartan\Database\Migrator;
+use Spartan\JobQueue;
+
+$config = require __DIR__ . '/config/config.php';
+$config['base_path'] ??= __DIR__;
+$app = new Application($config);
+
+$ensureDb = function() use ($app): void {
+    if ($app->db === null) {
+        echo "Error: No database connection. Check .env DB credentials.\n";
+        exit(1);
+    }
+};
+
+$command = $argv[1] ?? 'help';
+
+switch ($command) {
+    case 'migrate':
+        $ensureDb();
+        echo "Running migrations...\n";
+        $migrator = new Migrator($app->db);
+        try {
+            $migrator->migrate();
+            echo "Migrations completed successfully!\n";
+        } catch (\Throwable $e) {
+            echo "Migration failed: " . $e->getMessage() . "\n";
+            exit(1);
+        }
+        break;
+
+    case 'db:seed':
+        $ensureDb();
+        echo "Seeding database...\n";
+        $seedFile = __DIR__ . '/database/seed.sql';
+        if (file_exists($seedFile)) {
+            try {
+                $sql = file_get_contents($seedFile);
+                $app->db->exec($sql);
+                echo "Database seeded successfully from database/seed.sql!\n";
+            } catch (\Throwable $e) {
+                echo "Seeding failed: " . $e->getMessage() . "\n";
+                exit(1);
+            }
+        } else {
+            echo "No seed file found at database/seed.sql.\n";
+        }
+        break;
+
+    case 'worker':
+        $ensureDb();
+        $loopMode  = in_array('--loop', $argv ?? [], true);
+        $pollSecs  = 5;
+        echo "Started job queue worker" . ($loopMode ? " in loop mode (polling every {$pollSecs}s)" : '') . ".\n";
+        $queue = new JobQueue($app->db, (int) ($config['queue']['stale_after'] ?? 600));
+        do {
+            $processed = $queue->processPending();
+            if ($processed > 0) {
+                echo date('Y-m-d H:i:s') . " — processed {$processed} job(s).\n";
+            }
+            if ($loopMode) {
+                sleep($pollSecs);
+            }
+        } while ($loopMode);
+        echo "Worker stopped.\n";
+        break;
+
+    case 'config:cache':
+        $cachePath = __DIR__ . '/storage/cache/config.php';
+        $configObj = new \Spartan\Config($config);
+        // Merge environment-specific config if it exists
+        $envFile = __DIR__ . '/config/' . ($config['app']['env'] ?? 'production') . '.php';
+        $configObj->mergeFrom($envFile);
+        if ($configObj->cache($cachePath)) {
+            echo "Configuration cached successfully to storage/cache/config.php\n";
+        } else {
+            echo "Error: Failed to write configuration cache.\n";
+            exit(1);
+        }
+        break;
+
+    case 'config:clear':
+        $cachePath = __DIR__ . '/storage/cache/config.php';
+        if (file_exists($cachePath)) {
+            unlink($cachePath);
+            echo "Configuration cache cleared!\n";
+        } else {
+            echo "No configuration cache to clear.\n";
+        }
+        break;
+
+    case 'migrate:rollback':
+        $ensureDb();
+        echo "Rolling back migrations...\n";
+        $migrator = new Migrator($app->db);
+        $steps = (int) ($argv[2] ?? 1);
+        try {
+            $migrator->rollback($steps);
+            echo "Rollback completed!\n";
+        } catch (\Throwable $e) {
+            echo "Rollback failed: " . $e->getMessage() . "\n";
+            exit(1);
+        }
+        break;
+
+    case 'migrate:reset':
+        $ensureDb();
+        echo "Resetting all migrations...\n";
+        $migrator = new Migrator($app->db);
+        try {
+            $migrator->reset();
+            echo "All migrations rolled back!\n";
+        } catch (\Throwable $e) {
+            echo "Reset failed: " . $e->getMessage() . "\n";
+            exit(1);
+        }
+        break;
+
+    case 'migrate:fresh':
+        $ensureDb();
+        echo "Dropping all tables and re-migrating...\n";
+        $migrator = new Migrator($app->db);
+        try {
+            $migrator->fresh();
+            echo "Fresh migration completed!\n";
+        } catch (\Throwable $e) {
+            echo "Fresh migration failed: " . $e->getMessage() . "\n";
+            exit(1);
+        }
+        break;
+
+    case 'migrate:status':
+        $ensureDb();
+        $migrator = new Migrator($app->db);
+        $statuses = $migrator->status();
+        echo "Migration Status:\n";
+        foreach ($statuses as $s) {
+            $badge = $s['ran'] ? '✅' : '⏳';
+            $batch = $s['ran'] ? " (batch {$s['batch']})" : '';
+            echo "  {$badge} {$s['migration']}{$batch}\n";
+        }
+        break;
+
+    case 'health':
+        $health = new \Spartan\HealthCheck();
+        $result = $health->run();
+        echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n";
+        exit($result['status'] === 'healthy' ? 0 : 1);
+
+    case 'lang:list':
+        $translator = \Spartan\Translation\Translator::getInstance();
+        $locales = $translator->availableLocales();
+        $current = $translator->getLocale();
+        $fallback = $translator->getFallback();
+        echo "Available Locales:\n";
+        foreach ($locales as $locale) {
+            $badges = [];
+            if ($locale === $current) $badges[] = 'active';
+            if ($locale === $fallback) $badges[] = 'fallback';
+            if ($translator->isRtl($locale)) $badges[] = 'RTL';
+            $badgeStr = !empty($badges) ? ' (' . implode(', ', $badges) . ')' : '';
+            echo "  • {$locale}{$badgeStr}\n";
+        }
+        break;
+
+    case 'lang:check':
+        echo "Checking translation files for missing keys...\n\n";
+        $langPath = __DIR__ . '/lang';
+        if (!is_dir($langPath)) {
+            echo "No lang/ directory found.\n";
+            exit(1);
+        }
+
+        $translator = \Spartan\Translation\Translator::getInstance();
+        $locales = $translator->availableLocales();
+        if (count($locales) < 2) {
+            echo "Need at least 2 locales to compare. Found: " . implode(', ', $locales) . "\n";
+            exit(0);
+        }
+
+        $referenceLocale = $locales[0]; // First locale alphabetically as reference
+        $allGroups = [];
+        $allKeys = []; // [group][locale] => flat keys
+
+        // Scan all groups across all locales
+        foreach ($locales as $locale) {
+            $localeDir = $langPath . '/' . $locale;
+            if (!is_dir($localeDir)) continue;
+            foreach (scandir($localeDir) as $file) {
+                if (str_ends_with($file, '.php')) {
+                    $group = basename($file, '.php');
+                    $allGroups[$group] = true;
+                }
+            }
+        }
+
+        // Flatten nested arrays to dot-notation keys
+        $flattenKeys = function(array $array, string $prefix = '') use (&$flattenKeys): array {
+            $keys = [];
+            foreach ($array as $key => $value) {
+                $fullKey = $prefix === '' ? (string) $key : $prefix . '.' . $key;
+                if (is_array($value)) {
+                    $keys = array_merge($keys, $flattenKeys($value, $fullKey));
+                } else {
+                    $keys[] = $fullKey;
+                }
+            }
+            return $keys;
+        };
+
+        // Collect all keys per group per locale
+        foreach (array_keys($allGroups) as $group) {
+            foreach ($locales as $locale) {
+                $data = $translator->getGroup($group, $locale);
+                $allKeys[$group][$locale] = $flattenKeys($data);
+            }
+        }
+
+        // Compare: find missing keys in each locale
+        $totalMissing = 0;
+        foreach (array_keys($allGroups) as $group) {
+            // Union of all keys across all locales
+            $unionKeys = [];
+            foreach ($locales as $locale) {
+                $unionKeys = array_merge($unionKeys, $allKeys[$group][$locale] ?? []);
+            }
+            $unionKeys = array_unique($unionKeys);
+            sort($unionKeys);
+
+            foreach ($locales as $locale) {
+                $localeKeys = $allKeys[$group][$locale] ?? [];
+                $missing = array_diff($unionKeys, $localeKeys);
+                if (!empty($missing)) {
+                    echo "⚠️  lang/{$locale}/{$group}.php — " . count($missing) . " missing key(s):\n";
+                    foreach ($missing as $key) {
+                        echo "    ✗ {$group}.{$key}\n";
+                        $totalMissing++;
+                    }
+                    echo "\n";
+                }
+            }
+        }
+
+        if ($totalMissing === 0) {
+            echo "✅ All locale files are in sync! No missing keys found.\n";
+        } else {
+            echo "Found {$totalMissing} missing key(s) total.\n";
+        }
+        exit($totalMissing > 0 ? 1 : 0);
+
+    case 'view:clear':
+        $viewsCacheDir = __DIR__ . '/storage/views';
+        $cleared = 0;
+        if (is_dir($viewsCacheDir)) {
+            foreach (glob($viewsCacheDir . '/*.php') ?: [] as $file) {
+                if (is_file($file)) {
+                    unlink($file);
+                    $cleared++;
+                }
+            }
+        }
+        echo "Compiled view cache cleared ({$cleared} file(s) deleted).\n";
+        break;
+
+    case 'route:list':
+        foreach (['web.php', 'admin.php', 'api.php'] as $rf) {
+            $rPath = __DIR__ . '/routes/' . $rf;
+            if (file_exists($rPath)) {
+                require_once $rPath;
+            }
+        }
+        $routes = $app->router->getRoutes();
+        if (empty($routes)) {
+            echo "No routes registered.\n";
+            exit(0);
+        }
+        echo str_pad("Method", 10) . str_pad("URI", 30) . str_pad("Action", 45) . "Middlewares\n";
+        echo str_repeat("─", 105) . "\n";
+        foreach ($routes as $httpMethod => $paths) {
+            foreach ($paths as $uri => $info) {
+                $cb = $info['callback'];
+                if (is_array($cb)) {
+                    $actionStr = $cb[0] . '@' . $cb[1];
+                } elseif ($cb instanceof \Closure) {
+                    $actionStr = 'Closure';
+                } else {
+                    $actionStr = (string)$cb;
+                }
+                $mwList = implode(', ', array_map(function($m) {
+                    return is_string($m) ? (str_contains($m, '\\') ? basename(str_replace('\\', '/', $m)) : $m) : 'custom';
+                }, $info['middlewares'] ?? []));
+                echo str_pad($httpMethod, 10) . str_pad($uri, 30) . str_pad($actionStr, 45) . ($mwList ?: '-') . "\n";
+            }
+        }
+        break;
+
+    case 'help':
+    default:
+        echo "Spartan CLI Command Runner\n";
+        echo "Usage:\n";
+        echo "  php spartan migrate           Run database migrations\n";
+        echo "  php spartan migrate:rollback  Roll back the last batch\n";
+        echo "  php spartan migrate:reset     Roll back all migrations\n";
+        echo "  php spartan migrate:fresh     Drop all and re-migrate\n";
+        echo "  php spartan migrate:status    Show migration status\n";
+        echo "  php spartan db:seed           Seed the database with records\n";
+        echo "  php spartan worker            Run the background job worker\n";
+        echo "  php spartan worker --loop     Run the worker in a continuous loop\n";
+        echo "  php spartan config:cache      Cache the configuration\n";
+        echo "  php spartan config:clear      Clear the configuration cache\n";
+        echo "  php spartan view:clear        Clear the compiled Blade view cache\n";
+        echo "  php spartan route:list        List all registered routes\n";
+        echo "  php spartan health            Run system health check\n";
+        echo "  php spartan lang:list         List available locales\n";
+        echo "  php spartan lang:check        Check locale files for missing keys\n";
+        break;
+}

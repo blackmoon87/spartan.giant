@@ -151,6 +151,8 @@ php spartan worker --loop
 │   └── config.php              # .env loader → config array
 ├── database/
 │   └── migrations/             # Dialect-aware SQL migrations
+├── examples/
+│   └── helpdesk/               # Complete example app (see its README)
 ├── public/
 │   ├── .htaccess               # Apache URL rewriting
 │   └── index.php               # Front controller entry point
@@ -555,6 +557,24 @@ composer require nesbot/carbon
 echo \Carbon\Carbon::now()->subMinutes(15)->diffForHumans();
 // Output: "15 minutes ago"
 ```
+
+---
+
+## Example Application
+
+[`examples/helpdesk`](examples/helpdesk) is a complete support-ticket system that
+uses most of the framework: registration and login with rate limiting, roles and
+permissions, a ticket policy, FormRequests, file uploads checked with `finfo`,
+sync and queued events, tagged caching, transactions, and a JSON API with bearer
+tokens — all under a strict `default-src 'self'` CSP. It builds its SQLite demo
+database on the first request:
+
+```bash
+cd examples/helpdesk && php -S localhost:8090 -t public
+```
+
+Log in as `admin@helpdesk.test`, `agent@helpdesk.test` or `maria@helpdesk.test`
+(password `password`). See its [README](examples/helpdesk/README.md).
 
 ---
 

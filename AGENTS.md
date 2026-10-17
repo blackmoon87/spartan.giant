@@ -114,3 +114,6 @@ vendor/bin/phpstan analyse --memory-limit=512M      # [OK] No errors
 ```
 
 Run an app locally: `php -S localhost:8000 -t public`.
+Working reference app (copy its patterns): `examples/helpdesk` — auth, roles,
+policies, FormRequests, uploads, events + queue, tagged cache, token JSON API.
+It runs with zero setup: `cd examples/helpdesk && php -S localhost:8090 -t public`.

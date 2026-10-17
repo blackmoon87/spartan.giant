@@ -44,6 +44,8 @@ In scope: the framework itself — everything under `framework/src`.
 
 Out of scope:
 
+- the example application under `examples/`, a demonstration that
+  deliberately ships with seeded credentials,
 - misconfiguration of an application built with Spartan (`APP_DEBUG=true` in
   production, a world-readable `.env`, no `TRUSTED_PROXIES` behind a proxy),
 - findings from automated scanners with no demonstrated impact.

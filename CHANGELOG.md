@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Blade: the inline form `@section('name', $value)` now escapes `$value`, as
+  Laravel does. `@yield` prints sections raw, so a section filled from user
+  input (`@section('title', $post['title'])`) was an XSS hole. Values written
+  with `@lang()` or `{{ }}` are escaped once, as before. Compiled views are
+  rebuilt automatically (compiler version 4).
+
+### Added
+
+- `examples/helpdesk`: a complete example application (support tickets with
+  roles, policies, uploads, queued notifications, tagged cache and a token
+  JSON API).
+
 ### Removed
 
 - The `examples/` apps (`blogger`, `taskforge`) and their screenshots in

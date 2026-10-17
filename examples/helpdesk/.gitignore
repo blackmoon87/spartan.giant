@@ -1,0 +1,10 @@
+.env
+/vendor/
+composer.lock
+/database/*.sqlite
+/database/*.building
+/storage/cache/*
+/storage/views/*
+/storage/logs/*
+/storage/uploads/*
+!/storage/*/.gitkeep
