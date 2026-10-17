@@ -437,6 +437,7 @@ final class HardeningTest extends TestCase
             private array $data = ['locale' => 'ar'];
             public function set(string $key, mixed $value): void { $this->data[$key] = $value; }
             public function get(string $key, mixed $default = null): mixed { return $this->data[$key] ?? $default; }
+            public function has(string $key): bool { return isset($this->data[$key]); }
             public function remove(string $key): void { unset($this->data[$key]); }
             public function setFlash(string $key, mixed $message): void {}
             public function getFlash(string $key, mixed $default = null): mixed { return $default; }

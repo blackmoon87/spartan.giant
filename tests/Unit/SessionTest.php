@@ -21,6 +21,14 @@ final class SessionTest extends TestCase
         $this->assertSame('dflt', $this->app->session->get('nope', 'dflt'));
     }
 
+    public function test_has_checks_if_key_is_present(): void
+    {
+        $this->app->session->set('present', 123);
+
+        $this->assertTrue($this->app->session->has('present'));
+        $this->assertFalse($this->app->session->has('absent'));
+    }
+
     public function test_remove_deletes_a_key(): void
     {
         $this->app->session->set('tmp', 1);

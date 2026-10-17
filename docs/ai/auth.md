@@ -140,6 +140,11 @@ class AuthController extends Controller
 
     public function showLogin(): string
     {
+        if ($this->auth->check() || $this->session->has('user_id')) {
+            $this->redirect('/');
+            return '';
+        }
+
         return $this->render('auth/login');
     }
 

@@ -11,6 +11,11 @@ class AuthController extends Controller
 {
     public function showLogin(): string
     {
+        if ($this->auth->check() || $this->session->has('user_id')) {
+            $this->redirect('/author/posts');
+            return '';
+        }
+
         return $this->render('auth/login', [
             'title' => 'Login — Spartan Blogger',
         ]);
