@@ -77,6 +77,10 @@ Source: `framework/src/View.php` (the compiler is `compileString()`), `helpers.p
 There is no `@forelse`, `@isset`, `@unless`, `@switch`, `@props` or components:
 write `@if(…)`, `@empty(…)` or `@php` instead.
 
+Do not define closures (`fn () =>`, `function () {}`) inside `@php`: without
+OPcache every render keeps the closure's compiled code, so memory grows in
+worker mode. Compute values in the controller, or use a plain loop.
+
 ## Variables available in every view
 
 - everything passed to `render()`
@@ -154,7 +158,9 @@ Usage patterns:
 - **In Controllers (flash messages)**: `$this->session->setFlash('success', trans('app.messages.saved'));`.
 - **In Controllers (JSON / API responses)**: `$this->json(['message' => trans('app.messages.saved')], 200);` or `['error' => trans('app.messages.not_found')]`.
 
-Missing keys print the key itself. The locale comes from the session key
+Framework messages (validation, 401/403/404/429/500, CSRF) live in the
+`spartan` group, bundled in `framework/lang/{en,ar}/spartan.php`; an app's
+`lang/{locale}/spartan.php` overrides individual keys. Missing keys print the key itself. The locale comes from the session key
 `locale` on each request (default `APP_LOCALE`); switch with
 `$this->session->set('locale', 'ar');` then redirect. `php spartan lang:check`
 lists keys missing in any locale.

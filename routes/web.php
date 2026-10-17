@@ -11,5 +11,5 @@ use App\Controllers\HomeController;
 
 $app->router->get('/', [HomeController::class, 'index']);
 $app->router->get('/contact', [HomeController::class, 'contact']);
-$app->router->post('/contact', [HomeController::class, 'contact']);
+$app->router->post('/contact', [HomeController::class, 'sendContact']);
 $app->router->get('/profile/{id}', [HomeController::class, 'profile']);

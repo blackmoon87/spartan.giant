@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Controllers\Requests\ContactRequest;
 use Spartan\Controller;
 use Spartan\Application;
 use App\Models\User;
@@ -15,25 +16,26 @@ class HomeController extends Controller
      */
     public function index(): string
     {
-        $dbStatus = Application::$app->db !== null ? 'Connected' : 'Not Connected (Check your .env settings)';
-        
-        $params = [
-            'title' => 'Home Page',
-            'dbStatus' => $dbStatus,
-            'userCount' => 0
-        ];
+        // A translation key suffix (site.home.db_*), never a raw driver message:
+        // connection errors go to the log, not to the visitor.
+        $dbStatus  = 'missing';
+        $userCount = 0;
 
-        // Fetch user counts if DB is connected
         if (Application::$app->db !== null) {
             try {
-                $userModel = new User();
-                $params['userCount'] = $userModel->getCount();
-            } catch (\Exception $e) {
-                $params['dbStatus'] = 'Database Connection Failed/Error: ' . $e->getMessage();
+                $userCount = (new User())->getCount();
+                $dbStatus  = 'connected';
+            } catch (\Throwable $e) {
+                error_log('Home page database check failed: ' . $e->getMessage());
+                $dbStatus = 'error';
             }
         }
 
-        return $this->render('home', $params);
+        return $this->render('home', [
+            'active'    => 'home',
+            'dbStatus'  => $dbStatus,
+            'userCount' => $userCount,
+        ]);
     }
 
     /**
@@ -42,39 +44,28 @@ class HomeController extends Controller
     public function profile(string $id): string
     {
         return $this->render('profile', [
-            'title' => 'User Profile',
-            'userId' => $id
+            'active' => 'profile',
+            'userId' => $id,
         ]);
     }
 
     /**
-     * Render contact form and process form submissions.
+     * Render the contact form.
      */
     public function contact(): string
     {
-        $request = Application::$app->request;
-        $message = '';
-        $body = [];
+        return $this->render('contact', ['active' => 'contact']);
+    }
 
-        if ($request->isPost()) {
-            $body = $request->getBody();
-            
-            // Basic input check
-            $name = $body['name'] ?? '';
-            $email = $body['email'] ?? '';
-            $msgContent = $body['message'] ?? '';
+    /**
+     * Handle a contact form submission. ContactRequest validates the input
+     * first and redirects back with errors() and old() on failure.
+     */
+    public function sendContact(ContactRequest $request): void
+    {
+        $name = (string) $request->post('name');
 
-            if (empty($name) || empty($email) || empty($msgContent)) {
-                $message = 'Error: Please fill out all fields.';
-            } else {
-                $message = "Success: Thank you {$name}! Your message has been received.";
-            }
-        }
-
-        return $this->render('contact', [
-            'title' => 'Contact Us',
-            'message' => $message,
-            'body' => $body
-        ]);
+        $this->session->setFlash('success', trans('site.contact.sent', ['name' => $name]));
+        $this->redirect('/contact');
     }
 }
