@@ -31,10 +31,10 @@ Source: `framework/src/View.php` (the compiler is `compileString()`), `helpers.p
 
 ```blade
 @extends('layouts.app')
-@section('title', 'All posts')
+@section('title', trans('posts.all_posts'))
 
 @section('content')
-    <h1>Posts</h1>
+    <h1>@lang('posts.all_posts')</h1>
     @foreach($posts as $post)
         @include('posts.card', ['post' => $post])
     @endforeach
@@ -94,14 +94,14 @@ Helpers: `old('field')`, `errors()` / `errors('field')`, `url('/path')`,
 ```blade
 <form method="POST" action="/posts">
     @csrf
-    <label>Title <input name="title" value="{{ old('title') }}"></label>
+    <label>@lang('posts.title') <input name="title" value="{{ old('title') }}"></label>
     @if(errors('title'))<p class="error">{{ errors('title') }}</p>@endif
 
     <select name="status">
-        <option value="draft" @selected(old('status') === 'draft')>Draft</option>
-        <option value="published" @selected(old('status') === 'published')>Published</option>
+        <option value="draft" @selected(old('status') === 'draft')>@lang('posts.status_draft')</option>
+        <option value="published" @selected(old('status') === 'published')>@lang('posts.status_published')</option>
     </select>
-    <button>Save</button>
+    <button>@lang('app.actions.save')</button>
 </form>
 
 {{-- edit form --}}
@@ -127,16 +127,33 @@ fetch('/posts/5/like', {
 
 HTMX partials: return `$this->renderViewOnly('posts.row', $data)` (no layout).
 
-## Translation
+## Translation — Mandatory for All Frontend & User-Facing Text
+
+**Zero hardcoded strings policy**: All visible text in Blade views (titles,
+headings, button labels, form placeholders, empty states, and badges) as well as
+all backend-to-frontend messages (session flash alerts, redirect messages, JSON
+API status/error messages) **MUST** use Spartan's translation engine.
 
 `lang/en/app.php`:
 
 ```php
 <?php
-return ['welcome' => 'Welcome, :name!', 'nav' => ['home' => 'Home']];
+return [
+    'welcome'  => 'Welcome, :name!',
+    'nav'      => ['home' => 'Home'],
+    'actions'  => ['save' => 'Save', 'cancel' => 'Cancel'],
+    'messages' => [
+        'saved'     => 'Changes saved successfully.',
+        'not_found' => 'The requested resource was not found.',
+    ],
+];
 ```
 
-Use `trans('app.welcome', ['name' => $user->name])` or `@lang('app.nav.home')`.
+Usage patterns:
+- **In Blade views**: `@lang('app.nav.home')` or `{{ __('app.welcome', ['name' => $user->name]) }}`.
+- **In Controllers (flash messages)**: `$this->session->setFlash('success', trans('app.messages.saved'));`.
+- **In Controllers (JSON / API responses)**: `$this->json(['message' => trans('app.messages.saved')], 200);` or `['error' => trans('app.messages.not_found')]`.
+
 Missing keys print the key itself. The locale comes from the session key
 `locale` on each request (default `APP_LOCALE`); switch with
 `$this->session->set('locale', 'ar');` then redirect. `php spartan lang:check`

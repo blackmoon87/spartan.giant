@@ -65,6 +65,7 @@ storage/                 cache, logs, compiled views (generated — never commit
 9. **Use the built-in feature first. A new Composer package needs the user's
    approval:** name the package and why, wait for a yes, then follow
    `docs/ai/packages.md` (wrap it in a service in `src/Services/`).
+10. **Always use the translation engine for all frontend and user-facing text.** Never hardcode raw strings in Blade views (`.blade.php`), flash messages (`$this->session->setFlash(...)`), or backend-to-frontend JSON/API responses (`$this->json(...)`). Always use `trans('group.key', [...])` or `__('group.key', [...])` in PHP and `@lang('group.key')` or `{{ __('group.key') }}` in views, backed by translation files in `lang/{locale}/{group}.php`.
 
 ## Laravel habits → the Spartan way
 
@@ -101,8 +102,9 @@ storage/                 cache, logs, compiled views (generated — never commit
 4. **Service** in `src/Services/` when logic spans several models.
 5. **Controller** action in `src/Controllers/`.
 6. **Route** in `routes/web.php` (or `api.php`), with middleware.
-7. **View** in `src/Views/` extending a layout.
-8. **Test** in `tests/Unit/` for the new behaviour.
+7. **View** in `src/Views/` extending a layout (all text localized via `@lang()` or `{{ __('...') }}`).
+8. **Translations** in `lang/{locale}/{group}.php` for all view labels, buttons, flash alerts, and backend response messages.
+9. **Test** in `tests/Unit/` for the new behaviour.
 
 The feature is done when all three checks below pass.
 

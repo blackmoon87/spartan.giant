@@ -134,6 +134,7 @@ class AuthController extends Controller
 
         $this->session->regenerate();                 // new session id on privilege change
         $this->session->set('user_id', (int) $id);
+        $this->session->setFlash('success', trans('auth.registered'));
         $this->redirect('/');
     }
 
@@ -150,7 +151,7 @@ class AuthController extends Controller
         $user = (new User())->findInstanceBy('email', $email);
 
         if ($user === null || !password_verify($password, (string) $user->password)) {
-            $this->session->setFlash('error', 'Invalid email or password.');
+            $this->session->setFlash('error', trans('auth.failed'));
             $this->redirect('/login');
             return;
         }
@@ -161,6 +162,7 @@ class AuthController extends Controller
 
         $this->session->regenerate();
         $this->session->set('user_id', (int) $user->id);
+        $this->session->setFlash('success', trans('app.welcome', ['name' => $user->name]));
         $this->redirect('/');
     }
 
@@ -168,6 +170,7 @@ class AuthController extends Controller
     {
         $this->session->remove('user_id');
         $this->session->regenerate();
+        $this->session->setFlash('notice', trans('auth.logged_out'));
         $this->redirect('/');
     }
 }

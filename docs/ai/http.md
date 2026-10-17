@@ -56,7 +56,7 @@ class PostController extends Controller
         $post = (new Post())->find($id);
         if ($post === null) {
             $this->response->setStatusCode(404);
-            return $this->render('error_404', ['message' => 'Post not found.']);
+            return $this->render('error_404', ['message' => trans('app.messages.not_found')]);
         }
         return $this->render('posts/show', ['post' => $post]);
     }
@@ -70,7 +70,7 @@ class PostController extends Controller
             'title'   => $data['title'],
             'body'    => $data['body'],
         ]);
-        $this->session->setFlash('success', 'Post published.');
+        $this->session->setFlash('success', trans('posts.published'));
         $this->redirect('/posts');
     }
 }
@@ -86,9 +86,14 @@ What an action returns:
 | redirect | `$this->redirect('/path');` then `return;` | `void` |
 | status code / header | `$this->response->setStatusCode(201);` `$this->response->setHeader('X-A', 'b');` | — |
 
-Inside a controller: `$this->request`, `$this->response`, `$this->session`, plus
+Inside a controller: `$this->request`, `$this->response`, `$this->session`, `$this->auth`, plus
 `$this->validate($data, $rules)`, `$this->make(Service::class)`,
 `$this->event('name', $payload)`, `$this->setLayout('x')`, `$this->share('key', $v)`.
+
+**Mandatory translation rule for controllers**: Never pass raw text in
+`$this->session->setFlash(...)` or JSON messages returned to the client.
+Always use `trans('group.key', [...])` or `__('group.key', [...])` so responses
+support multiple locales (`lang/{locale}/{group}.php`).
 
 Constructor injection (resolved by the container):
 

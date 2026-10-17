@@ -6,6 +6,7 @@ namespace Spartan\Tests\Fixtures;
 
 use Spartan\Attributes\RequirePermission;
 use Spartan\Attributes\RequireRole;
+use Spartan\AuthInterface;
 use Spartan\Controller;
 use Spartan\FormRequest;
 use Spartan\Logger;
@@ -14,6 +15,7 @@ use Spartan\Model;
 use Spartan\RelationQuery;
 use Spartan\Request;
 use Spartan\Response;
+use Spartan\SessionInterface;
 
 /** Records ordered side effects so tests can assert on execution order. */
 final class Trace
@@ -148,7 +150,10 @@ class PlainController extends Controller
 
     public function hasServices(): bool
     {
-        return $this->request instanceof Request && $this->response instanceof Response;
+        return $this->request instanceof Request
+            && $this->response instanceof Response
+            && $this->session instanceof SessionInterface
+            && $this->auth instanceof AuthInterface;
     }
 }
 

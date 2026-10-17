@@ -41,7 +41,7 @@ class PostApiController extends Controller
     {
         $post = (new Post())->find($id);
         $post === null
-            ? $this->json(['error' => 'Not found.'], 404)
+            ? $this->json(['error' => trans('app.messages.not_found')], 404)
             : $this->json(['data' => $post]);
     }
 
@@ -50,10 +50,13 @@ class PostApiController extends Controller
         $user = Gate::resolveUser();                       // set by the token middleware
         $data = $request->getBody();
         $id   = (new Post())->create(['user_id' => $user->id, 'title' => $data['title'], 'body' => $data['body']]);
-        $this->json(['data' => (new Post())->find($id)], 201);
+        $this->json(['message' => trans('app.messages.saved'), 'data' => (new Post())->find($id)], 201);
     }
 }
 ```
+
+> **Mandatory rule**: Always use `trans('group.key', [...])` for messages, notices, and error descriptions returned in API responses so frontend clients receive localized strings according to `lang/{locale}/{group}.php`.
+
 
 ## What API clients must send
 

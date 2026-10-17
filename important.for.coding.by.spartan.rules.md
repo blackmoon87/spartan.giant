@@ -5,7 +5,7 @@
 
 ---
 
-## 1. Absolute Prohibitions (The 11 Taboos)
+## 1. Absolute Prohibitions (The 12 Taboos)
 
 | Forbidden Practice | Why It Is Forbidden | What You Must Use Instead |
 |---|---|---|
@@ -20,6 +20,7 @@
 | Inventing non-existent Laravel helpers (e.g. `redirect()`, `view()`) | Spartan is strictly OOP. Use defined helpers only. | `$this->redirect()`, `$this->render()` |
 | Calling `$model->orders()->for($item)` inside loops | Causes $N+1$ database performance destruction. | Eager load via `->loadFor($items, as: 'orders')` |
 | Direct property access `$model->table` from outside | Violates encapsulation. | Always call `$model->getTable()` |
+| Hardcoded user-facing strings in Views or backend-to-frontend messages | Breaks i18n localization and multilingual support. | Always use Spartan's translation engine: `@lang('group.key')` or `{{ __('group.key') }}` in views, and `trans('group.key', [...])` in controllers/services for flash alerts (`setFlash`), redirects, and JSON/API responses (`$this->json(...)`). Define keys in `lang/{locale}/{group}.php`. |
 
 ---
 
@@ -196,22 +197,30 @@ class OrderController extends Controller
         ]);
 
         if ($v->fails()) {
-            $this->session->setFlash('error', 'Please fix form errors.');
+            $this->session->setFlash('error', trans('app.messages.error'));
             $this->redirect('/orders/create');
             return;
         }
 
         $this->event('order.placed', ['order_id' => 101]);
-        $this->session->setFlash('success', 'Order created successfully!');
+        $this->session->setFlash('success', trans('app.messages.saved'));
         $this->redirect('/orders');
     }
 
     public function apiData(): void
     {
-        $this->json(['status' => 'ok', 'timestamp' => time()]);
+        $this->json([
+            'status'  => 'ok',
+            'message' => trans('app.messages.saved'),
+            'timestamp' => time(),
+        ]);
     }
 }
 ```
+
+> **CRITICAL LAW — Backend-to-Frontend Messages**:
+> All messages dispatched from backend to frontend — including session flash alerts (`$this->session->setFlash()`), redirect warnings, validation feedback, and JSON/API status/error responses (`$this->json()`) — MUST be wrapped in `trans('group.key', [...])` or `__('group.key', [...])`. Never send raw unlocalized strings to the client.
+
 
 ---
 
@@ -458,12 +467,19 @@ Spartan includes its own native, zero-dependency Blade compiler in `Spartan\View
 
     {{-- Header / Navigation --}}
     <nav>
-        <a href="/">Home</a>
+        <a href="/">@lang('app.nav.home')</a>
         @auth
-            <a href="/profile">Profile</a>
+            <a href="/profile">@lang('app.nav.settings')</a>
             @role('admin')
-                <a href="/admin">Backoffice</a>
+                <a href="/admin">@lang('app.nav.dashboard')</a>
             @endrole
+            <form method="POST" action="/logout" style="display:inline;">
+                @csrf
+                <button type="submit">@lang('app.nav.logout')</button>
+            </form>
+        @else
+            <a href="/login">@lang('app.nav.login')</a>
+            <a href="/register">@lang('app.nav.register')</a>
         @endauth
     </nav>
 
@@ -482,13 +498,13 @@ Spartan includes its own native, zero-dependency Blade compiler in `Spartan\View
 ```blade
 @extends('layouts.main')
 
-@section('title', 'Products Catalog')
+@section('title', trans('app.nav.home'))
 
 @section('content')
     <h1>{{ $categoryName }} ({{ count($products) }})</h1>
 
     @if(empty($products))
-        <p>No products found in this category.</p>
+        <p>@lang('app.messages.not_found')</p>
     @else
         <div class="product-grid">
             @foreach($products as $product)
@@ -507,7 +523,7 @@ Spartan includes its own native, zero-dependency Blade compiler in `Spartan\View
 ```blade
 @extends('layouts.main')
 
-@section('title', 'Add New Product')
+@section('title', trans('app.actions.create'))
 
 @section('content')
     <form method="POST" action="/products">
@@ -515,8 +531,8 @@ Spartan includes its own native, zero-dependency Blade compiler in `Spartan\View
 
         {{-- Text Input --}}
         <div>
-            <label>Product Name</label>
-            <input type="text" name="name" value="{{ $old['name'] ?? '' }}">
+            <label>@lang('app.actions.create')</label>
+            <input type="text" name="name" value="{{ $old['name'] ?? '' }}" placeholder="{{ __('app.actions.create') }}">
             @if(!empty($errors['name']))
                 <span class="error">{{ $errors['name'][0] }}</span>
             @endif
@@ -524,7 +540,7 @@ Spartan includes its own native, zero-dependency Blade compiler in `Spartan\View
 
         {{-- Select Dropdown with @selected --}}
         <div>
-            <label>Category</label>
+            <label>@lang('app.actions.search')</label>
             <select name="category_id">
                 @foreach($categories as $cat)
                     <option value="{{ $cat->id }}" @selected(($old['category_id'] ?? '') == $cat->id)>
@@ -538,12 +554,12 @@ Spartan includes its own native, zero-dependency Blade compiler in `Spartan\View
         <div>
             <label>
                 <input type="checkbox" name="is_featured" value="1" @checked(!empty($old['is_featured']))>
-                Featured Item
+                @lang('app.actions.confirm')
             </label>
         </div>
 
         {{-- Submit Button with @disabled --}}
-        <button type="submit" @disabled(!empty($isReadOnly))>Save Product</button>
+        <button type="submit" @disabled(!empty($isReadOnly))>@lang('app.actions.save')</button>
     </form>
 @endsection
 ```
@@ -555,10 +571,18 @@ Spartan includes its own native, zero-dependency Blade compiler in `Spartan\View
     <p>Price: ${{ number_format($product->price, 2) }}</p>
 
     @can('edit_product', $product)
-        <a href="/products/{{ $product->id }}/edit">Edit</a>
+        <a href="/products/{{ $product->id }}/edit">@lang('app.actions.edit')</a>
     @endcan
 
     @cannot('purchase', $product)
+        <span class="badge out-of-stock">@lang('app.messages.not_found')</span>
+    @endcannot
+</div>
+```
+
+> **CRITICAL LAW — Frontend Views Internationalization**:
+> Never write raw text strings in Blade views (`.blade.php`). All text — page titles, headings, button captions, navigation links, form field labels, input placeholders, empty states, and badges — MUST be rendered using `@lang('group.key')` or `{{ __('group.key') }}`. Every translation key must be populated across all supported languages in `lang/{locale}/{group}.php`.
+
         <span class="badge out-of-stock">Out of Stock</span>
     @endcannot
 </div>

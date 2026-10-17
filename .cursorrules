@@ -26,6 +26,7 @@ Custom lightweight PHP 8.1+ MVC framework. Zero external dependencies in core. A
 | Laravel/Symfony components replacing core parts (Illuminate, Eloquent, Twig…) | Spartan's built-in layer; other packages only with user approval (`docs/ai/packages.md`) |
 | DDL queries (`ALTER`, `CREATE`, `DROP`) inside Controllers | `database/migrations/` sequenced files via `php spartan migrate` |
 | Manual `session_write_close()` in Controllers | Spartan auto-releases session lock at end of `Application::run()` |
+| Hardcoding user-facing text in Views or backend-to-frontend messages | Spartan translation engine: `trans('group.key', [...])` in PHP, `@lang('group.key')` or `{{ __('group.key') }}` in views, defined in `lang/{locale}/{group}.php` |
 
 ---
 
@@ -252,7 +253,7 @@ public function store(StorePostRequest $request) {
 $this->session->set('key', $value);
 $this->session->get('key');
 $this->session->regenerate();        // REQUIRED after login or privilege change
-$this->session->setFlash('status', 'Saved!');
+$this->session->setFlash('status', trans('app.messages.saved')); // Always use trans() for user messages
 
 // Auth (AuthInterface)
 $this->auth->check();   // bool
@@ -316,12 +317,16 @@ $app->router->get('/path', [Controller::class, 'action'], [MyMiddleware::class, 
     @escape($var)
     @csrf                      {{-- required in every POST form --}}
     @flash('status')
+    @lang('app.welcome')       {{-- translation directive --}}
+    {{ __('app.key') }}        {{-- translation helper alias --}}
     @if($authUser) ... @endif
     @can('edit', $post) ... @endcan
     @role('admin') ... @endrole
     @include('partials.card', ['item' => $item])
 @endsection
 ```
+
+**MANDATORY TRANSLATION LAW**: Never hardcode user-facing strings in Blade views (`.blade.php`), flash messages (`$this->session->setFlash()`), or API/JSON responses (`$this->json()`). Always use Spartan's translation engine (`@lang()` / `__('...')` / `trans('...')`) backed by `lang/{locale}/{group}.php`.
 
 Native PHP templates: use `$this->escape($var)` and `<?= $this->csrfToken() ?>`.  
 HTMX partials: use `$this->renderViewOnly(...)` — never return full layout.

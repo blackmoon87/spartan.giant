@@ -9,12 +9,14 @@ abstract class Controller
     protected Request $request;
     protected Response $response;
     protected SessionInterface $session;
+    protected AuthInterface $auth;
 
     public function __construct()
     {
         $this->request  = Application::$app->request;
         $this->response = Application::$app->response;
         $this->session  = Application::$app->session;
+        $this->auth     = Application::$app->auth;
     }
 
     /**

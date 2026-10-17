@@ -63,6 +63,7 @@ $v = $this->validate($this->request->getBody(), [
     'q' => 'required|string|min:2',
 ]);
 if ($v->fails()) {
+    $this->session->setFlash('error', trans('app.messages.error'));
     return $this->render('search', ['errors' => $v->errors()]);   // ['q' => 'message']
 }
 ```
@@ -108,5 +109,6 @@ Examples:
 - `N` in `min`/`max` is an integer.
 - An unknown rule name throws `InvalidArgumentException`: check spelling
   against the table above.
-- Messages are English, one per field, e.g. `The email field must be a valid email address.`
+- Messages are English by default, one per field, e.g. `The email field must be a valid email address.`
+- When presenting custom validation feedback, flash errors, or mapped messages to the user/frontend, always pass them through the translation engine (`trans('group.key')` or `@lang()`).
 - Nested/array fields (`items.*`) are not supported: validate each value yourself.
