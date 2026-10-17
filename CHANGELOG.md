@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with `@lang()` or `{{ }}` are escaped once, as before. Compiled views are
   rebuilt automatically (compiler version 4).
 
+### Changed
+
+- `QueryBuilder::pluck()`: a bare column name that is ambiguous after `join()`
+  now throws a `PDOException` that says to qualify it (e.g.
+  `pluck('users.name')`) instead of only the raw driver error, which is kept
+  as the previous exception. Behaviour is otherwise unchanged.
+
 ### Added
 
 - `examples/helpdesk`: a complete example application (support tickets with

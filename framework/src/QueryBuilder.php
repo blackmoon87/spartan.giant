@@ -501,6 +501,22 @@ class QueryBuilder
         $this->select(...$selectCols);
         try {
             $rows = $this->get();
+        } catch (\PDOException $e) {
+            // pluck() selects only its own columns, so after a join() a bare
+            // name another table shares is ambiguous. Say how to fix it instead
+            // of surfacing the raw driver error (same exception type, so
+            // existing catch blocks keep working).
+            $bare = array_values(array_filter($selectCols, fn (string $c): bool => !str_contains($c, '.')));
+            if ($this->joins !== [] && $bare !== [] && stripos($e->getMessage(), 'ambiguous') !== false) {
+                throw new \PDOException(sprintf(
+                    "pluck(%s): a column name is ambiguous after join(); qualify it with its table, e.g. pluck('%s.%s'). Driver: %s",
+                    implode(', ', array_map(fn (string $c): string => "'{$c}'", $selectCols)),
+                    $this->table,
+                    $bare[0],
+                    $e->getMessage()
+                ), 0, $e);
+            }
+            throw $e;
         } finally {
             $this->selects = $selects;
         }
