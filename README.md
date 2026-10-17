@@ -225,7 +225,9 @@ php spartan worker --loop
 │   └── stress_test.php         # Micro-benchmark suite
 ├── .env
 ├── .env.example
-├── .cursorrules                # AI IDE architecture rules
+├── AGENTS.md                   # AI assistant guide (canonical) + docs/ai/ topic guides
+├── CLAUDE.md                   # Claude Code entry (imports AGENTS.md)
+├── .cursorrules                # Cursor summary (defers to AGENTS.md)
 └── composer.json
 ```
 
@@ -657,14 +659,20 @@ php examples/taskforge/test.php
 
 ## AI IDE Rules
 
-The `.cursorrules` file encodes the full architecture as enforceable rules for AI assistants (Cursor, GitHub Copilot, etc.). It covers:
+Spartan ships instructions that AI coding assistants load automatically:
 
-- Directory structure and namespace conventions
-- Security rules (mandatory escape, CSRF in every form, session regeneration)
-- QueryBuilder API reference
-- Relationship patterns and eager loading rules
-- Async queue configuration
-- Feature workflow (route → service → model → controller → view)
+| File | Read by |
+|---|---|
+| [`AGENTS.md`](AGENTS.md) | Codex, Cursor, Copilot (VS Code), Windsurf, most agents — **the canonical guide** |
+| [`CLAUDE.md`](CLAUDE.md) | Claude Code (imports `AGENTS.md`) |
+| [`.github/copilot-instructions.md`](.github/copilot-instructions.md) | GitHub Copilot |
+| `.cursorrules` | Cursor (summary; defers to `AGENTS.md`) |
+
+`AGENTS.md` holds the golden rules, the project map, the Laravel-habit → Spartan
+mapping, the feature workflow and the checks. It points to verified topic guides in
+[`docs/ai/`](docs/ai): database, HTTP, views, auth (login / registration / roles),
+validation, and services. Every documented API is checked against the code by
+`tests/Unit/AgentDocsTest.php`.
 
 ---
 

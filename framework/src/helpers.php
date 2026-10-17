@@ -127,6 +127,28 @@ if (!function_exists('is_rtl')) {
     }
 }
 
+if (!function_exists('errors')) {
+    /**
+     * Validation errors flashed by a failed FormRequest.
+     *
+     *   errors()        → ['email' => 'The email field must be ...', ...]
+     *   errors('email') → 'The email field must be ...' or null
+     *
+     * (@flash() is for string messages; the error list is an array.)
+     */
+    function errors(?string $field = null): array|string|null
+    {
+        if (!isset(\Spartan\Application::$app)) {
+            return $field === null ? [] : null;
+        }
+
+        $all = \Spartan\Application::$app->session->getFlash('validation_errors', []);
+        $all = is_array($all) ? $all : [];
+
+        return $field === null ? $all : ($all[$field] ?? null);
+    }
+}
+
 if (!function_exists('old')) {
     /**
      * Retrieve an old input item from session flash or current request.

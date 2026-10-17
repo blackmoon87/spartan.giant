@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- AI assistant guide: `AGENTS.md` (canonical, auto-loaded by Codex, Cursor,
+  Copilot and other agents), `CLAUDE.md` (imports it), `.github/copilot-instructions.md`,
+  and verified topic guides in `docs/ai/` — database, HTTP, views, auth
+  (login / registration / logout / roles / gates), validation, services.
+  `tests/Unit/AgentDocsTest.php` fails if the docs name a framework method that
+  does not exist, and runs the documented recipes.
+- `errors()` / `errors('field')` helper for validation messages in views
+  (`@flash()` is for strings and failed on the error array).
+- `src/Views/error_500.php` in the skeleton (the 500 page rendered
+  "View [error_500] not found.").
 - Distributable package: the framework is now `spartan/framework`, autoloaded
   under the `Spartan\` namespace from `framework/src/`. The application skeleton
   keeps the `App\` namespace in `src/`.
