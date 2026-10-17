@@ -61,16 +61,14 @@ class User extends Model
      */
     public function staff(): array
     {
-        // Not pluck(): it replaces the SELECT with bare "name, id", which is
-        // ambiguous here because roles has a name column too.
-        $rows = $this->table()
-            ->select('users.id', 'users.name')
+        // Qualified names: roles has a name column too, so a bare
+        // pluck('name', 'id') would be ambiguous once the tables are joined.
+        return $this->table()
             ->join('user_roles', 'user_roles.user_id', '=', 'users.id')
             ->join('roles', 'roles.id', '=', 'user_roles.role_id')
             ->where('roles.slug', ['admin', 'agent'])
             ->orderBy('users.name')
-            ->get();
-        return array_column($rows, 'name', 'id');
+            ->pluck('users.name', 'users.id');
     }
 
     /** Ids of every agent and admin, for "new ticket" notifications. */

@@ -107,7 +107,7 @@ Terminators:
 | `find($id)` | `?array` |
 | `count()` | `int` |
 | `exists()` | `bool` |
-| `pluck('email')` / `pluck('name', 'id')` | `array` (list, or keyed by the 2nd column) |
+| `pluck('email')` / `pluck('name', 'id')` | `array` (list, or keyed by the 2nd column); selects only these columns, so after a `join()` write them qualified — `pluck('users.name', 'users.id')` — when another table has the same column |
 | `paginate(15, $page)` | `['data' => rows, 'total', 'per_page', 'current_page', 'last_page']` |
 | `chunk(500, fn(array $rows, int $page) => …)` | `bool`; return `false` from the callback to stop |
 | `cursor()` | `Generator` of rows (one at a time, constant memory) |
