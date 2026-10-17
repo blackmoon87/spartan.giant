@@ -10,8 +10,6 @@ A hand-crafted PHP 8.1+ MVC framework for developers who want to understand ever
 
 Analysed at **PHPStan level 5**.
 
-![TaskForge Dashboard](docs/screenshots/taskforge_dashboard_v3.png)
-
 ---
 
 ## What's Inside
@@ -153,9 +151,6 @@ php spartan worker --loop
 │   └── config.php              # .env loader → config array
 ├── database/
 │   └── migrations/             # Dialect-aware SQL migrations
-├── examples/
-│   ├── blogger/                # Example 1: Enterprise Publishing Platform (24/24 tests)
-│   └── taskforge/              # Example 2: 100% Feature Verification App (36/36 tests)
 ├── public/
 │   ├── .htaccess               # Apache URL rewriting
 │   └── index.php               # Front controller entry point
@@ -214,22 +209,6 @@ php spartan worker --loop
 ├── .cursorrules                # Cursor summary (defers to AGENTS.md)
 └── composer.json
 ```
-
----
-
-## 📸 Screenshots Showcase
-
-### 1. TaskForge — Complete Feature Verification App (`examples/taskforge`)
-Dark-mode SaaS dashboard with task tracking, project metrics, role-based access control (RBAC), and 36 automated unit tests.
-
-![TaskForge Dashboard](docs/screenshots/taskforge_dashboard_v3.png)
-
-### 2. Spartan Blogger — Enterprise Publishing Platform (`examples/blogger`)
-Glassmorphic publication platform featuring article analytics, comment management, clap engine, and HTMX partial swaps.
-
-| Home Page | Article Detail Page |
-|---|---|
-| ![Blogger Home](docs/screenshots/blogger_home_v3.png) | ![Blogger Post](docs/screenshots/blogger_post_v3.png) |
 
 ---
 
@@ -576,24 +555,6 @@ composer require nesbot/carbon
 echo \Carbon\Carbon::now()->subMinutes(15)->diffForHumans();
 // Output: "15 minutes ago"
 ```
-
----
-
-## Example Applications
-
-Spartan includes two full example applications in the `examples/` directory. Each
-builds its SQLite demo database from its own migrations and seed data on the first
-request — no setup step. Every demo user's password is `password`.
-
-### 1. Enterprise Blogger Platform ([examples/blogger](examples/blogger))
-- Features: Article publishing, category filtering, HTMX live search, article claps/likes, newsletter subscriptions, real-time analytics API, audit logs, and author publishing portal protected by `#[RequireRole('author')]`.
-- Run server: `cd examples/blogger && php -S localhost:8086 -t public`
-- Log in as `marcus@blogger.com` (author) or `elena@blogger.com` (admin).
-
-### 2. TaskForge — Feature Verification App ([examples/taskforge](examples/taskforge))
-- Features: Projects and tasks with RBAC, policies, DI container, events, queue, cache, validation, Blade layouts and inline sections — one automated check per framework feature.
-- Run server: `cd examples/taskforge && php -S localhost:8087 -t public`
-- Log in as `alexei@taskforge.dev`.
 
 ---
 

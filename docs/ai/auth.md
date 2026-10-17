@@ -1,8 +1,7 @@
 # Auth — users, login, registration, logout, roles, permissions, gates
 
 Source: `framework/src/Auth.php`, `Session.php`, `Gate.php`,
-`Traits/HasAuthorization.php`, `Attributes/*`, `Middlewares/AuthMiddleware.php`,
-working example: `examples/blogger/src/Controllers/AuthController.php`.
+`Traits/HasAuthorization.php`, `Attributes/*`, `Middlewares/AuthMiddleware.php`.
 
 ## How it works
 

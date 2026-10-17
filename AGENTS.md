@@ -114,6 +114,3 @@ vendor/bin/phpstan analyse --memory-limit=512M      # [OK] No errors
 ```
 
 Run an app locally: `php -S localhost:8000 -t public`.
-Working reference apps (copy their patterns): `examples/blogger` (auth, roles,
-forms, JSON API, queue) and `examples/taskforge` (projects, tasks, policies,
-HTMX). Each runs with zero setup: `cd examples/blogger && php -S localhost:8086 -t public`.

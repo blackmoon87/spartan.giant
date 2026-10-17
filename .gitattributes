@@ -1,6 +1,4 @@
 # Keep the distributed package lean — these are repo-only assets.
-/examples          export-ignore
-/docs/screenshots  export-ignore
 /.github           export-ignore
 /.gitattributes    export-ignore
 /phpstan.neon      export-ignore

@@ -18,10 +18,6 @@
 
 # Databases
 *.sqlite*
-# Example demo databases are generated on first request
-examples/*/database/*.db
-examples/*/database/*.building
-examples/*/storage/*.sqlite*
 
 # OS
 .DS_Store
@@ -41,9 +37,3 @@ Thumbs.db
 codebase_index.tq
 /htmlCreator/
 
-# Composer installs (examples resolve the framework through a path repository)
-examples/*/vendor/
-examples/*/storage/views/*
-!examples/*/storage/views/.gitkeep
-examples/*/storage/cache/*
-!examples/*/storage/cache/.gitkeep
