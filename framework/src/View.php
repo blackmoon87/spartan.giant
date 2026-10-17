@@ -11,7 +11,7 @@ class View implements ViewInterface
      * compiled-file key, so templates compiled by an older compiler are never
      * reused just because their source file did not change.
      */
-    private const COMPILER_VERSION = '3';
+    private const COMPILER_VERSION = '4';
 
     private string $layout = 'main';
     private string $viewsPath;
@@ -316,6 +316,14 @@ class View implements ViewInterface
     {
         $name  = $m[1];
         $value = $m[2];
+
+        // A plain expression — @section('title', $post['title']) — is escaped,
+        // as in Laravel: @yield prints sections raw, so an unescaped value
+        // from user input was XSS. @lang / {{ }} values are escaped below.
+        if (!preg_match('/@lang\s*\(|\{\{/', $value)) {
+            $key = var_export(trim($name, '\'"'), true);
+            return '<?php $this->sections[' . $key . '] = htmlspecialchars((string) (' . $value . '), ENT_QUOTES, \'UTF-8\'); ?' . '>';
+        }
 
         // @lang('key') → expression form (not echo form)
         $value = preg_replace(

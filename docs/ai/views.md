@@ -59,7 +59,7 @@ Source: `framework/src/View.php` (the compiler is `compileString()`), `helpers.p
 | `@for(…)` `@endfor` · `@while(…)` `@endwhile` | loops |
 | `@empty($list)` … `@endempty` | runs when `$list` is empty |
 | `@extends('layout')` | use a layout |
-| `@section('name')` … `@endsection` · `@section('name', $value)` | fill a section |
+| `@section('name')` … `@endsection` · `@section('name', $value)` | fill a section (the inline `$value` is escaped) |
 | `@yield('name')` | print a section (in layouts) |
 | `@include('view', [...])` | render a partial |
 | `@csrf` | hidden `_csrf` input |
