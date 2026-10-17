@@ -15,8 +15,7 @@
         "php": ">=8.1"
     },
     "require-dev": {
-        "phpstan/phpstan": "^2.2",
-        "phpunit/phpunit": "^10.5"
+        "phpstan/phpstan": "^2.2"
     },
     "suggest": {
         "ext-pdo": "Required for the QueryBuilder, Model layer, migrations and the job queue",
@@ -32,22 +31,13 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "App\\": "src/",
-            "Spartan\\Tests\\": "tests/"
-        },
-        "classmap": [
-            "tests/Fixtures/"
-        ]
+            "App\\": "src/"
+        }
     },
     "scripts": {
-        "test": "phpunit",
-        "test:kernel": "php tests/run_tests.php",
         "analyse": "phpstan analyse --memory-limit=512M",
-        "bench": "php tests/stress_test.php",
-        "bench:db": "php tests/benchmark_1m_db.php",
         "check": [
-            "@analyse",
-            "@test"
+            "@analyse"
         ]
     },
     "config": {

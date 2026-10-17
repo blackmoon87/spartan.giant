@@ -43,7 +43,7 @@ wait for approval. After approval:
 
 ```bash
 composer require symfony/mailer            # runtime package
-composer require --dev some/dev-tool       # tests/tooling only
+composer require --dev some/dev-tool       # dev tooling only
 ```
 
 Commit both `composer.json` and `composer.lock`.
@@ -169,6 +169,4 @@ and cache responses with `Cache::remember()` to stay within API limits.
 - Catch the library's exceptions inside your service and turn them into a
   result your app understands (return value or your own exception); log the
   details with `Application::$app->logger`.
-- In tests, bind a fake implementation in the container instead of calling the
-  real service.
 - Production installs use `composer install --no-dev --optimize-autoloader`.

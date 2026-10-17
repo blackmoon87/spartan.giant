@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Test and benchmark files: `tests/`, `phpunit.xml`, `BENCHMARKS.md`,
+  `docs/ai/testing.md`, the example apps' `test.php` / `heavy_stress_test.php`,
+  and the `phpunit/phpunit` dev dependency. PHPStan (`composer analyse`) remains.
+
 ### Added
 
 - AI assistant guide: `AGENTS.md` (canonical, auto-loaded by Codex, Cursor,

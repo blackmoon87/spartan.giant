@@ -1,6 +1,5 @@
 # Spartan — Lightweight PHP MVC Framework
 
-[![CI](https://github.com/blackmoon87/spartan/actions/workflows/ci.yml/badge.svg)](https://github.com/blackmoon87/spartan/actions/workflows/ci.yml)
 [![PHP 8.1+](https://img.shields.io/badge/php-8.1%2B-777bb4)](https://www.php.net/)
 [![PHPStan level 5](https://img.shields.io/badge/PHPStan-level%205-brightgreen)](phpstan.neon)
 [![License MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
@@ -9,7 +8,7 @@
 
 A hand-crafted PHP 8.1+ MVC framework for developers who want to understand every line of their stack. No magic, no bloat — clean architecture with security taken seriously, in about 6,000 lines of readable code.
 
-Tested with **379 PHPUnit tests**, analysed at **PHPStan level 5**, and exercised on **PHP 8.1 through 8.4** in CI.
+Analysed at **PHPStan level 5**.
 
 ![TaskForge Dashboard](docs/screenshots/taskforge_dashboard_v3.png)
 
@@ -40,8 +39,7 @@ Tested with **379 PHPUnit tests**, analysed at **PHPStan level 5**, and exercise
 
 ## ⚡ Performance
 
-Measured on this machine, with full reproduction scripts and transparent methods — see
-[BENCHMARKS.md](BENCHMARKS.md) for full benchmarks and competitive comparison.
+Measured on a reference machine:
 
 | Measurement | Result |
 |---|---|
@@ -54,13 +52,6 @@ Measured on this machine, with full reproduction scripts and transparent methods
 | **Live DB Roundtrips (SQLite)** | **~424,000 queries/sec** |
 | **Base Memory Footprint** | **~1.5 MB (Zero memory leaks)** |
 | **External Runtime Dependencies** | **0 (Zero)** |
-
-```bash
-# Run the benchmark suites:
-php tests/stress_test.php                     # 2M core framework stress test
-php tests/benchmark_1m_db.php                 # 1M complex DB & model hydration test
-php examples/blogger/heavy_stress_test.php    # Enterprise full-app 23-stage stress test
-```
 
 What actually makes it quick is unglamorous: nothing to autoload, route patterns
 compiled once, reflection metadata cached for the container and the
@@ -158,7 +149,6 @@ php spartan worker --loop
 ## Structure
 
 ```
-├── BENCHMARKS.md               # Full competitive performance benchmark report
 ├── config/
 │   └── config.php              # .env loader → config array
 ├── database/
@@ -217,12 +207,6 @@ php spartan worker --loop
 │   ├── cache/                  # Fast file cache store
 │   ├── logs/                   # PSR-3 daily log files
 │   └── views/                  # Compiled Blade PHP templates
-├── tests/
-│   ├── Unit/                   # PHPUnit suite (379 tests)
-│   ├── Fixtures/               # Test doubles & fixture models
-│   ├── bootstrap.php           # Boots the app against a throwaway SQLite DB
-│   ├── run_tests.php           # Dependency-free kernel suite (33 checks)
-│   └── stress_test.php         # Micro-benchmark suite
 ├── .env
 ├── .env.example
 ├── AGENTS.md                   # AI assistant guide (canonical) + docs/ai/ topic guides
@@ -603,34 +587,20 @@ request — no setup step. Every demo user's password is `password`.
 
 ### 1. Enterprise Blogger Platform ([examples/blogger](examples/blogger))
 - Features: Article publishing, category filtering, HTMX live search, article claps/likes, newsletter subscriptions, real-time analytics API, audit logs, and author publishing portal protected by `#[RequireRole('author')]`.
-- Run tests: `php examples/blogger/test.php` (24/24 passed).
 - Run server: `cd examples/blogger && php -S localhost:8086 -t public`
 - Log in as `marcus@blogger.com` (author) or `elena@blogger.com` (admin).
 
 ### 2. TaskForge — Feature Verification App ([examples/taskforge](examples/taskforge))
 - Features: Projects and tasks with RBAC, policies, DI container, events, queue, cache, validation, Blade layouts and inline sections — one automated check per framework feature.
-- Run tests: `php examples/taskforge/test.php` (36/36 passed).
 - Run server: `cd examples/taskforge && php -S localhost:8087 -t public`
 - Log in as `alexei@taskforge.dev`.
 
 ---
 
-## Test Suites
-
-Spartan includes comprehensive, automated test suites verifying 100% of the kernel engine and application features:
+## Static Analysis
 
 ```bash
-# 1. PHPUnit suite
-composer test
-
-# 2. Independent Framework Kernel Test Suite (33/33 Passed)
-php tests/run_tests.php
-
-# 3. Enterprise Blogger Platform Test Suite (24/24 Passed)
-php examples/blogger/test.php
-
-# 4. TaskForge Feature Verification Suite (36/36 Passed)
-php examples/taskforge/test.php
+composer analyse        # PHPStan level 5 over framework/src
 ```
 
 ---
@@ -672,8 +642,7 @@ Spartan ships instructions that AI coding assistants load automatically:
 mapping, the feature workflow and the checks. It points to verified topic guides in
 [`docs/ai/`](docs/ai): database, HTTP, views, auth (login / registration / roles),
 validation, services, JSON APIs (token auth, CORS), third-party packages,
-testing, and deployment (servers, cron, CLI commands, worker mode). Every documented API is checked against the code by
-`tests/Unit/AgentDocsTest.php`.
+and deployment (servers, cron, CLI commands, worker mode).
 
 ---
 

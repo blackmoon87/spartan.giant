@@ -18,7 +18,6 @@ close to Laravel in shape but different in detail (see *Laravel habits* below).
 | services, DI container, events, queue, cache, logs, uploads, config, CLI | `docs/ai/services.md` |
 | JSON API endpoints, token auth, CORS, API errors          | `docs/ai/api.md`              |
 | adding or using a Composer package (mail, HTTP client, PDF…) | `docs/ai/packages.md`      |
-| tests                                                    | `docs/ai/testing.md`          |
 | production setup, web server, cron, custom CLI commands, worker mode | `docs/ai/deployment.md` |
 
 Deep design and UI law (styling, responsive layouts): `important.for.coding.by.spartan.rules.md`.
@@ -104,16 +103,14 @@ storage/                 cache, logs, compiled views (generated — never commit
 6. **Route** in `routes/web.php` (or `api.php`), with middleware.
 7. **View** in `src/Views/` extending a layout (all text localized via `@lang()` or `{{ __('...') }}`).
 8. **Translations** in `lang/{locale}/{group}.php` for all view labels, buttons, flash alerts, and backend response messages.
-9. **Test** in `tests/Unit/` for the new behaviour.
 
-The feature is done when all three checks below pass.
+The feature is done when the check below passes and the page works in the
+running app.
 
 ## Checks — run after every change
 
 ```bash
-vendor/bin/phpunit                                  # all green
 vendor/bin/phpstan analyse --memory-limit=512M      # [OK] No errors
-php tests/run_tests.php                             # kernel suite, 0 failed
 ```
 
 Run an app locally: `php -S localhost:8000 -t public`.

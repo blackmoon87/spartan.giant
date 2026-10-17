@@ -36,9 +36,6 @@ Thumbs.db
 /public/uploads/
 /storage/uploads/
 
-# PHPUnit
-/.phpunit.cache/
-
 # Local tooling (not part of the repo)
 .TurboQuantex/
 codebase_index.tq
