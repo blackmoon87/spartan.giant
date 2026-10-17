@@ -7,16 +7,24 @@ namespace App\Controllers;
 use App\Models\Ticket;
 use Spartan\Controller;
 use Spartan\Gate;
+use Spartan\HttpResponseException;
 
 /** Helpers shared by the web controllers. */
 abstract class AppController extends Controller
 {
-    /** The logged-in user (routes using it carry the 'auth' middleware). */
+    /**
+     * The logged-in user (routes using it carry the 'auth' middleware).
+     * The middleware only checks that the session holds a user_id; when that
+     * account no longer exists, end the stale login instead of failing.
+     */
     protected function user(): object
     {
         $user = $this->auth->user();
         if ($user === null) {
-            throw new \LogicException('This action requires the auth middleware.');
+            $this->session->remove('user_id');
+            $this->session->regenerate();
+            $this->response->redirect('/login');
+            throw new HttpResponseException($this->response);
         }
         return $user;
     }
