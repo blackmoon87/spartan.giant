@@ -4,7 +4,7 @@
 # Spartan — Rules & Standards
 
 ## Identity
-Custom lightweight PHP 8.1+ MVC framework. Zero external dependencies in core. Composer packages are allowed when needed.
+Custom lightweight PHP 8.1+ MVC framework. Zero external dependencies in core. Applications may add a Composer package only with the user's approval, wrapped in a service — see `docs/ai/packages.md`.
 **Never assume Laravel/Symfony/Yii conventions. Everything below is the law.**
 
 ---
@@ -23,7 +23,7 @@ Custom lightweight PHP 8.1+ MVC framework. Zero external dependencies in core. C
 | `isset()`/`empty()`/`filter_var()` validation chains in Controllers | `$this->validate($data, $rules)` |
 | `view()`, `request()`, `redirect()`, `env()`, `config()` helpers | Not defined — do not use |
 | Implicit table names or auto-resolved foreign keys | Always declare `$table`, `foreignKey`, and relation `as:` explicitly |
-| Third-party namespaces (Carbon, Illuminate, etc.) | Native PHP unless explicitly instructed |
+| Laravel/Symfony components replacing core parts (Illuminate, Eloquent, Twig…) | Spartan's built-in layer; other packages only with user approval (`docs/ai/packages.md`) |
 | DDL queries (`ALTER`, `CREATE`, `DROP`) inside Controllers | `database/migrations/` sequenced files via `php spartan migrate` |
 | Manual `session_write_close()` in Controllers | Spartan auto-releases session lock at end of `Application::run()` |
 

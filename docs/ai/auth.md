@@ -57,10 +57,11 @@ class User extends Model
 ## Routes
 
 ```php
+// public/index.php — aliases belong here: route files are skipped when routes are cached
+$app->router->aliasMiddleware('throttle', \Spartan\Middlewares\RateLimitMiddleware::class);
+
 // routes/web.php
 use App\Controllers\AuthController;
-
-$app->router->aliasMiddleware('throttle', \Spartan\Middlewares\RateLimitMiddleware::class);
 
 $app->router->get('/register', [AuthController::class, 'showRegister']);
 $app->router->post('/register', [AuthController::class, 'register'], ['throttle:5,60']);

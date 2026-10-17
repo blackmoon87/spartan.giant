@@ -174,6 +174,10 @@ class Timing extends \Spartan\Middleware
 The route is skipped when a middleware sets a redirect, a body, or a status
 ≥ 400 — or returns without calling `$next()`.
 
+Register `setGlobalMiddlewares()` and `aliasMiddleware()` in `public/index.php`.
+With `ROUTE_CACHE_ENABLED=true` the route files are not loaded; routes, groups
+and CSRF exclusions come from the cache, but aliases and global middleware do not.
+
 ## CSRF
 
 Global by default. Forms: `@csrf`. AJAX/fetch: send header `X-CSRF-Token` with

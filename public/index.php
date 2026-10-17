@@ -13,30 +13,33 @@ if (php_sapi_name() === 'cli-server') {
 
 // Load Autoloader
 $autoloadPath = dirname(__DIR__) . '/vendor/autoload.php';
-if (file_exists($autoloadPath)) {
+$hasVendor    = file_exists($autoloadPath);
+if ($hasVendor) {
     require_once $autoloadPath;
-} else {
-    // Fallback PSR-4 autoloader so the skeleton runs before `composer install`.
-    // Maps the framework package and the application namespace.
-    $prefixes = [
-        'Spartan\\' => dirname(__DIR__) . '/framework/src/',
-        'App\\'     => dirname(__DIR__) . '/src/',
-    ];
+}
 
-    spl_autoload_register(function (string $class) use ($prefixes): void {
-        foreach ($prefixes as $prefix => $baseDir) {
-            $len = strlen($prefix);
-            if (strncmp($prefix, $class, $len) !== 0) {
-                continue;
-            }
-            $file = $baseDir . str_replace('\\', '/', substr($class, $len)) . '.php';
-            if (file_exists($file)) {
-                require_once $file;
-                return;
-            }
+// PSR-4 fallback. The application namespace is always registered: composer.json
+// maps App\ only under autoload-dev (this repository is also the framework
+// package), so after `composer install --no-dev` Composer cannot find App\
+// classes. The framework is mapped too when vendor/ is absent. Composer's own
+// loader runs first; this only handles classes it could not find.
+$prefixes = ['App\\' => dirname(__DIR__) . '/src/'];
+if (!$hasVendor) {
+    $prefixes['Spartan\\'] = dirname(__DIR__) . '/framework/src/';
+}
+spl_autoload_register(function (string $class) use ($prefixes): void {
+    foreach ($prefixes as $prefix => $baseDir) {
+        if (strncmp($prefix, $class, strlen($prefix)) !== 0) {
+            continue;
         }
-    });
-
+        $file = $baseDir . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+        if (is_file($file)) {
+            require_once $file;
+        }
+        return;
+    }
+});
+if (!$hasVendor) {
     require_once dirname(__DIR__) . '/framework/src/helpers.php';
 }
 

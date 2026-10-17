@@ -20,7 +20,8 @@ use Spartan\View;
 final class AgentDocsTest extends TestCase
 {
     private const DOCS = ['AGENTS.md', 'docs/ai/database.md', 'docs/ai/http.md', 'docs/ai/views.md',
-                          'docs/ai/auth.md', 'docs/ai/validation.md', 'docs/ai/services.md'];
+                          'docs/ai/auth.md', 'docs/ai/validation.md', 'docs/ai/services.md',
+                          'docs/ai/api.md', 'docs/ai/packages.md', 'docs/ai/testing.md', 'docs/ai/deployment.md'];
 
     /**
      * Methods the docs define in their own example application code (models,
@@ -33,7 +34,10 @@ final class AgentDocsTest extends TestCase
     ];
 
     /** Laravel APIs the docs cite only to say Spartan does it differently. */
-    private const LARAVEL_REFERENCES = ['attempt'];
+    private const LARAVEL_REFERENCES = ['attempt', 'command'];
+
+    /** Third-party library APIs shown in docs/ai/packages.md (verified against their own docs, not this framework). */
+    private const THIRD_PARTY = ['fromDsn', 'from', 'to', 'subject', 'html', 'request', 'forecast'];
 
     public function test_every_method_named_in_the_docs_exists(): void
     {
@@ -44,15 +48,24 @@ final class AgentDocsTest extends TestCase
             }
         }
 
+        // Methods of PHP built-ins and the test base classes the docs use (checked by reflection).
+        $known = [];
+        foreach ([\Throwable::class, \PDO::class, \PDOStatement::class, \PHPUnit\Framework\TestCase::class, TestCase::class] as $class) {
+            foreach ((new \ReflectionClass($class))->getMethods() as $m) {
+                $known[$m->getName()] = true;
+            }
+        }
+
         $missing = [];
         foreach (self::DOCS as $doc) {
             $text = (string) file_get_contents(__DIR__ . '/../../' . $doc);
             preg_match_all('/(?:->|::)([a-zA-Z_][a-zA-Z0-9_]*)\(/', $text, $m);
             foreach (array_unique($m[1]) as $method) {
-                if (in_array($method, self::APP_DEFINED, true) || in_array($method, self::LARAVEL_REFERENCES, true)) {
+                if (in_array($method, self::APP_DEFINED, true) || in_array($method, self::LARAVEL_REFERENCES, true)
+                    || in_array($method, self::THIRD_PARTY, true)) {
                     continue;
                 }
-                if (!preg_match('/function\s+' . preg_quote($method, '/') . '\s*\(/', $framework)) {
+                if (!isset($known[$method]) && !preg_match('/function\s+' . preg_quote($method, '/') . '\s*\(/', $framework)) {
                     $missing[] = "{$doc}: {$method}()";
                 }
             }
@@ -238,6 +251,78 @@ final class AgentDocsTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/@(section|yield|foreach|include|csrf|method|selected|auth|guest|lang|flash)\b/', $html);
     }
 
+    // ─── api.md ──────────────────────────────────────────────────────────────
+
+    public function test_api_guide_token_middleware_authenticates_and_feeds_role_checks(): void
+    {
+        $db = $this->app->db;
+        $db->exec("CREATE TABLE IF NOT EXISTS api_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+                   token_hash CHAR(64) NOT NULL UNIQUE, created_at DATETIME NULL, last_used_at DATETIME NULL)");
+        $db->exec("DELETE FROM api_tokens; DELETE FROM user_roles; DELETE FROM roles; DELETE FROM users;");
+        $db->exec("INSERT INTO roles (id, name, slug) VALUES (1, 'Admin', 'admin')");
+        $userId = (int) (new DocsUser())->create(['name' => 'Api', 'email' => 'api@example.com', 'password' => 'x']);
+        (new DocsUser())->findInstance($userId)?->assignRole('admin');
+
+        $plain = bin2hex(random_bytes(32));
+        (new QueryBuilder($db, 'api_tokens'))->insert(['user_id' => $userId, 'token_hash' => hash('sha256', $plain), 'created_at' => gmdate('Y-m-d H:i:s')]);
+
+        // valid token → the route sees the token user, and role checks pass
+        [$router] = $this->router('GET', '/api/v1/me', ['HTTP_AUTHORIZATION' => 'Bearer ' . $plain]);
+        $router->aliasMiddleware('api.auth', DocsApiTokenAuth::class);
+        $router->get('/api/v1/me', fn() => Gate::resolveUser()->email . '|' . (Gate::resolveUser()->hasRole('admin') ? 'admin' : '-'), ['api.auth']);
+        $this->assertSame('api@example.com|admin', $router->resolve());
+        $this->app->container->forget('auth_user');
+
+        // missing token → 401 JSON, route skipped
+        [$router, , $response] = $this->router('GET', '/api/v1/me');
+        $router->aliasMiddleware('api.auth', DocsApiTokenAuth::class);
+        $router->get('/api/v1/me', fn() => 'should not run', ['api.auth']);
+        $router->resolve();
+        $this->assertSame(401, $response->getStatusCode());
+        $this->assertSame(['error' => 'Unauthenticated.'], json_decode((string) $response->getContent(), true));
+    }
+
+    public function test_api_guide_cors_middleware_answers_preflight(): void
+    {
+        [$router, , $response] = $this->router('OPTIONS', '/api/v1/posts', ['HTTP_ORIGIN' => 'https://app.example.com']);
+        $router->setGlobalMiddlewares([DocsCors::class]);
+        $router->get('/api/v1/posts', fn() => 'list');
+
+        $router->resolve();
+
+        $this->assertSame(204, $response->getStatusCode());
+        $this->assertSame('https://app.example.com', $response->getHeaders()['Access-Control-Allow-Origin'] ?? null);
+
+        [$router, , $response] = $this->router('GET', '/api/v1/posts', ['HTTP_ORIGIN' => 'https://evil.example']);
+        $router->setGlobalMiddlewares([DocsCors::class]);
+        $router->get('/api/v1/posts', fn() => 'list');
+        $this->assertSame('list', $router->resolve());
+        $this->assertArrayNotHasKey('Access-Control-Allow-Origin', $response->getHeaders());
+    }
+
+    // ─── testing.md ──────────────────────────────────────────────────────────
+
+    public function test_testing_guide_dispatch_pattern_runs_routes_on_the_shared_app(): void
+    {
+        $this->request('GET', '/docs-dispatch/7');
+        $app = $this->app;
+        $app->router->get('/docs-dispatch/{id}', fn(int $id) => "item {$id}");
+        $app->router->setRequest(new \Spartan\Request());
+        $app->router->setResponse($app->response);
+
+        $this->assertSame('item 7', $app->router->resolve());
+    }
+
+    // ─── deployment.md: production installs (--no-dev) still autoload App\ ─────
+
+    public function test_entry_points_always_register_the_app_namespace(): void
+    {
+        foreach (['public/index.php', 'spartan', 'worker.php'] as $file) {
+            $source = (string) file_get_contents(__DIR__ . '/../../' . $file);
+            $this->assertStringContainsString('$prefixes = [\'App\\\\\' =>', $source, "{$file} must map App\\ even when vendor/ exists");
+        }
+    }
+
     public function test_errors_helper_matches_the_docs(): void
     {
         $this->assertSame([], errors());
@@ -269,5 +354,51 @@ class DocsPostPolicy
     public function update(?object $user, DocsPost $post): bool
     {
         return $user !== null && (int) $post->user_id === (int) $user->id;
+    }
+}
+
+/** Token middleware exactly as in docs/ai/api.md. */
+class DocsApiTokenAuth extends \Spartan\Middleware
+{
+    public function execute(\Spartan\Request $request, \Spartan\Response $response): void
+    {
+        $header = (string) $request->header('Authorization');
+        $plain  = str_starts_with($header, 'Bearer ') ? substr($header, 7) : '';
+
+        $row = $plain === '' ? null
+            : (new QueryBuilder(\Spartan\Application::$app->db, 'api_tokens'))->where('token_hash', hash('sha256', $plain))->first();
+        $user = $row === null ? null : (new DocsUser())->findInstance($row['user_id']);
+
+        if ($user === null) {
+            $response->json(['error' => 'Unauthenticated.'], 401);
+            return;
+        }
+
+        \Spartan\Application::$app->container->instance('auth_user', $user);
+    }
+}
+
+/** CORS middleware exactly as in docs/ai/api.md. */
+class DocsCors extends \Spartan\Middleware
+{
+    private const ALLOWED_ORIGINS = ['https://app.example.com'];
+
+    public function handle(\Spartan\Request $request, \Spartan\Response $response, callable $next): mixed
+    {
+        $origin = (string) $request->header('Origin');
+        if (in_array($origin, self::ALLOWED_ORIGINS, true)) {
+            $response->setHeader('Access-Control-Allow-Origin', $origin);
+            $response->setHeader('Vary', 'Origin');
+            $response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+            $response->setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE');
+        }
+
+        if ($request->getMethod() === 'OPTIONS') {
+            $response->setStatusCode(204);
+            $response->setContent('');
+            return $response;
+        }
+
+        return $next();
     }
 }

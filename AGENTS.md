@@ -1,8 +1,9 @@
 # AGENTS.md — building on Spartan
 
-Spartan is a small, dependency-free PHP 8.1+ MVC framework. Every API you need is
-in `framework/src/` (~9k lines) — when a guide here and the code disagree, **the
-code wins**: open the class and read it. Write code the Spartan way, which is
+Spartan is a small PHP 8.1+ MVC framework whose core (`framework/src/`, ~9k lines)
+has zero dependencies; applications may add Composer packages (`docs/ai/packages.md`).
+Every framework API is in `framework/src/` — when a guide here and the code
+disagree, **the code wins**: open the class and read it. Write code the Spartan way, which is
 close to Laravel in shape but different in detail (see *Laravel habits* below).
 
 ## Topic guides — read the matching guide before writing that kind of code
@@ -15,6 +16,10 @@ close to Laravel in shape but different in detail (see *Laravel habits* below).
 | login, registration, logout, roles, permissions, gates   | `docs/ai/auth.md`             |
 | validation rules or a FormRequest                        | `docs/ai/validation.md`       |
 | services, DI container, events, queue, cache, logs, uploads, config, CLI | `docs/ai/services.md` |
+| JSON API endpoints, token auth, CORS, API errors          | `docs/ai/api.md`              |
+| adding or using a Composer package (mail, HTTP client, PDF…) | `docs/ai/packages.md`      |
+| tests                                                    | `docs/ai/testing.md`          |
+| production setup, web server, cron, custom CLI commands, worker mode | `docs/ai/deployment.md` |
 
 Deep design and UI law (styling, responsive layouts): `important.for.coding.by.spartan.rules.md`.
 
@@ -23,9 +28,9 @@ Deep design and UI law (styling, responsive layouts): `important.for.coding.by.s
 ```
 config/config.php        all settings, read from .env (copy .env.example → .env)
 routes/web.php|api.php|admin.php   route definitions ($app is in scope)
-public/index.php         front controller: register global middleware, gates,
-                         event listeners and container bindings here, after
-                         `$app = new Application($config);`
+public/index.php         front controller: register global middleware,
+                         middleware aliases, gates, event listeners and container
+                         bindings here, after `$app = new Application($config);`
 src/Controllers/         App\Controllers\…   extend Spartan\Controller
 src/Controllers/Requests/  App\Controllers\Requests\…  extend Spartan\FormRequest
 src/Models/              App\Models\…        extend Spartan\Model
@@ -57,6 +62,9 @@ storage/                 cache, logs, compiled views (generated — never commit
 7. **Configuration comes from `config('key.sub')`**, file paths from
    `Spartan\Paths` (`Paths::storage('x')`, `Paths::base('x')`).
 8. Use `declare(strict_types=1);`, typed parameters and return types in every file.
+9. **Use the built-in feature first. A new Composer package needs the user's
+   approval:** name the package and why, wait for a yes, then follow
+   `docs/ai/packages.md` (wrap it in a service in `src/Services/`).
 
 ## Laravel habits → the Spartan way
 
@@ -78,6 +86,11 @@ storage/                 cache, logs, compiled views (generated — never commit
 | `php artisan make:*`                  | create the file by hand from the guide's template            |
 | `php artisan migrate`                 | `php spartan migrate`                                        |
 | service providers                     | register in `public/index.php` after the Application         |
+| `Mail::send()`                        | a mailer package wrapped in a service (`packages.md`)        |
+| Sanctum / Passport API tokens         | token middleware recipe (`api.md`)                           |
+| `$schedule->command()`                | cron + a custom `php spartan` command (`deployment.md`)      |
+| `php artisan make:command`            | a `case` in the `spartan` file (`deployment.md`)             |
+| route groups with prefixes            | write full paths: `/api/v1/posts`                            |
 
 ## Feature workflow — follow in order
 

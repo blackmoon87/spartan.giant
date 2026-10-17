@@ -671,7 +671,8 @@ Spartan ships instructions that AI coding assistants load automatically:
 `AGENTS.md` holds the golden rules, the project map, the Laravel-habit → Spartan
 mapping, the feature workflow and the checks. It points to verified topic guides in
 [`docs/ai/`](docs/ai): database, HTTP, views, auth (login / registration / roles),
-validation, and services. Every documented API is checked against the code by
+validation, services, JSON APIs (token auth, CORS), third-party packages,
+testing, and deployment (servers, cron, CLI commands, worker mode). Every documented API is checked against the code by
 `tests/Unit/AgentDocsTest.php`.
 
 ---

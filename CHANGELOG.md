@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (login / registration / logout / roles / gates), validation, services.
   `tests/Unit/AgentDocsTest.php` fails if the docs name a framework method that
   does not exist, and runs the documented recipes.
+- AI guides for JSON APIs (token auth, CORS, JSON errors), third-party Composer
+  packages (policy: built-in first, user approval, wrap in a service), testing,
+  and deployment (production checklist, Nginx/Apache, cron, custom CLI
+  commands, FrankenPHP worker mode).
 - `errors()` / `errors('field')` helper for validation messages in views
   (`@flash()` is for strings and failed on the error array).
 - `src/Views/error_500.php` in the skeleton (the 500 page rendered
@@ -35,6 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`composer install --no-dev` broke the skeleton:** `App\` is mapped only under
+  `autoload-dev`, so production installs could not load any controller.
+  `public/index.php`, `spartan` and `worker.php` now always register the
+  `App\` namespace (and the framework when `vendor/` is absent — `worker.php`
+  previously failed without `vendor/`).
 - **Worker mode resumed the previous request's session.** PHP keeps the session
   ID after `session_write_close()`, so a request without a cookie inherited the
   last user's session. `Session::start()` now re-reads the current cookie.

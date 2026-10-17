@@ -34,22 +34,34 @@ if (PHP_SAPI !== 'cli') {
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 $autoloadPath = __DIR__ . '/vendor/autoload.php';
-if (file_exists($autoloadPath)) {
+$hasVendor    = file_exists($autoloadPath);
+if ($hasVendor) {
     require_once $autoloadPath;
-} else {
-    // Fallback PSR-4 autoloader (mirrors public/index.php)
-    spl_autoload_register(function (string $class): void {
-        $prefix  = 'App\\';
-        $baseDir = __DIR__ . '/src/';
-        $len     = strlen($prefix);
-        if (strncmp($prefix, $class, $len) !== 0) {
-            return;
+}
+
+// PSR-4 fallback. The application namespace is always registered: composer.json
+// maps App\ only under autoload-dev (this repository is also the framework
+// package), so after `composer install --no-dev` Composer cannot find App\
+// classes. The framework is mapped too when vendor/ is absent. Composer's own
+// loader runs first; this only handles classes it could not find.
+$prefixes = ['App\\' => __DIR__ . '/src/'];
+if (!$hasVendor) {
+    $prefixes['Spartan\\'] = __DIR__ . '/framework/src/';
+}
+spl_autoload_register(function (string $class) use ($prefixes): void {
+    foreach ($prefixes as $prefix => $baseDir) {
+        if (strncmp($prefix, $class, strlen($prefix)) !== 0) {
+            continue;
         }
-        $file = $baseDir . str_replace('\\', '/', substr($class, $len)) . '.php';
-        if (file_exists($file)) {
+        $file = $baseDir . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+        if (is_file($file)) {
             require_once $file;
         }
-    });
+        return;
+    }
+});
+if (!$hasVendor) {
+    require_once __DIR__ . '/framework/src/helpers.php';
 }
 
 use Spartan\Application;
