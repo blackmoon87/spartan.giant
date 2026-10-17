@@ -67,14 +67,14 @@ abstract class FormRequest extends Request
 
         $response = Application::$app->response;
         if ($this->isAjax() || str_contains($this->header('Content-Type') ?? '', 'application/json')) {
-            $response->json(['error' => 'This action is unauthorized.'], 403);
+            $response->json(['error' => trans('spartan.http.action_unauthorized')], 403);
             throw new HttpResponseException($response);
         }
 
         // Previously echoed the body and exited without ever sending the
         // 403, so the client received "200 OK".
         $response->setStatusCode(403);
-        $response->setContent('This action is unauthorized.');
+        $response->setContent(htmlspecialchars(trans('spartan.http.action_unauthorized'), ENT_QUOTES, 'UTF-8'));
         throw new HttpResponseException($response);
     }
 
@@ -101,13 +101,16 @@ abstract class FormRequest extends Request
 
         if ($this->isAjax() || str_contains($this->header('Content-Type') ?? '', 'application/json')) {
             $response->json([
-                'message' => 'The given data was invalid.',
+                'message' => trans('spartan.validation.invalid'),
                 'errors' => $errors
             ], 422);
             throw new HttpResponseException($response);
         }
 
-        $referer = $this->header('Referer') ?? '/';
+        // Back to the form. Without a Referer (stripped by a privacy setting
+        // or proxy) fall back to this request's own path — usually the form
+        // page itself — instead of '/', where errors() would never be shown.
+        $referer = $this->header('Referer') ?? $this->getPath();
         $response->redirect($referer);
         throw new HttpResponseException($response);
     }

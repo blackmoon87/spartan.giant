@@ -22,7 +22,14 @@ class AuthMiddleware extends Middleware
         $userId = Application::$app->session->get('user_id');
 
         if (!$userId) {
-            Application::$app->session->setFlash('error', 'You must be logged in to access this page.');
+            // AJAX/JSON callers get a 401 they can act on, not a redirect to
+            // an HTML login page (same as the #[RequiresRole] attribute check).
+            if ($request->isAjax()) {
+                $response->json(['error' => trans('spartan.http.unauthorized')], 401);
+                return;
+            }
+
+            Application::$app->session->setFlash('error', trans('spartan.http.login_required'));
             $response->redirect('/login');
         }
     }

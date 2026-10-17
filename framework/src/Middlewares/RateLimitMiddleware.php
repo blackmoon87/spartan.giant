@@ -7,6 +7,7 @@ namespace Spartan\Middlewares;
 use Spartan\Middleware;
 use Spartan\Request;
 use Spartan\Response;
+use Spartan\Router;
 use Spartan\Cache;
 
 use Spartan\Application;
@@ -46,10 +47,10 @@ class RateLimitMiddleware extends Middleware
             $response->setStatusCode(429);
 
             if ($request->isAjax()) {
-                $response->json(['error' => 'Too many requests. Please try again later.'], 429);
+                $response->json(['error' => trans('spartan.http.too_many_requests')], 429);
             } else {
                 $response->setHeader('Content-Type', 'text/html; charset=utf-8');
-                $response->setContent('<h1>429 Too Many Requests</h1><p>Too many requests. Please try again later.</p>');
+                $response->setContent(Router::plainErrorPage('spartan.http.title_429', 'spartan.http.too_many_requests'));
             }
         }
     }

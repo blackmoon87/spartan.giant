@@ -258,7 +258,7 @@ class Router
             if ($fallback === null) {
                 return $this->runMiddlewares($this->globalMiddlewares, function () {
                     $this->response->setStatusCode(404);
-                    return Application::$app->view->render('error_404', ['message' => 'The page you requested was not found.']);
+                    return Application::$app->view->render('error_404', ['message' => trans('spartan.http.not_found')]);
                 });
             }
 
@@ -640,9 +640,9 @@ class Router
         if (!$user) {
             $this->response->setStatusCode(401);
             if ($this->request->isAjax()) {
-                $this->response->json(['error' => 'Unauthorized.'], 401);
+                $this->response->json(['error' => trans('spartan.http.unauthorized')], 401);
             } else {
-                Application::$app->session->setFlash('error', 'You must be logged in to access this page.');
+                Application::$app->session->setFlash('error', trans('spartan.http.login_required'));
                 $this->response->redirect('/login');
             }
             return false;
@@ -674,19 +674,29 @@ class Router
     }
 
     /**
+     * Minimal translated HTML error page, for when the styled error view
+     * cannot be rendered (or the app has none).
+     */
+    public static function plainErrorPage(string $titleKey, string $messageKey): string
+    {
+        return '<h1>' . htmlspecialchars(trans($titleKey), ENT_QUOTES, 'UTF-8') . '</h1>'
+            . '<p>' . htmlspecialchars(trans($messageKey), ENT_QUOTES, 'UTF-8') . '</p>';
+    }
+
+    /**
      * Set Response content for forbidden access.
      */
     protected function abortForbidden(): void
     {
         $this->response->setStatusCode(403);
         if ($this->request->isAjax()) {
-            $this->response->json(['error' => 'Forbidden.'], 403);
+            $this->response->json(['error' => trans('spartan.http.forbidden')], 403);
         } else {
             try {
-                $rendered = Application::$app->view->render('error_403', ['message' => 'You do not have the required permissions to access this page.']);
+                $rendered = Application::$app->view->render('error_403', ['message' => trans('spartan.http.forbidden_page')]);
                 $this->response->setContent($rendered);
             } catch (\Throwable $e) {
-                $this->response->setContent("<h1>403 Forbidden</h1><p>You do not have the required permissions to access this page.</p>");
+                $this->response->setContent(self::plainErrorPage('spartan.http.title_403', 'spartan.http.forbidden_page'));
             }
         }
     }

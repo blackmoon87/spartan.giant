@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Spartan;
 
+use Spartan\Translation\Translator;
+
 class Validator
 {
     private array  $errors = [];
@@ -119,28 +121,28 @@ class Validator
     private function checkRequired(string $field, mixed $value): void
     {
         if ($value === null || trim((string) $value) === '') {
-            $this->addError($field, "The {$field} field is required.");
+            $this->addError($field, $this->message('required', $field));
         }
     }
 
     private function checkString(string $field, mixed $value): void
     {
         if ($value !== null && !is_string($value)) {
-            $this->addError($field, "The {$field} field must be a string.");
+            $this->addError($field, $this->message('string', $field));
         }
     }
 
     private function checkInteger(string $field, mixed $value): void
     {
         if ($value !== null && !filter_var($value, FILTER_VALIDATE_INT) && !ctype_digit((string) $value)) {
-            $this->addError($field, "The {$field} field must be an integer.");
+            $this->addError($field, $this->message('integer', $field));
         }
     }
 
     private function checkEmail(string $field, mixed $value): void
     {
         if ($value !== null && !filter_var($value, FILTER_VALIDATE_EMAIL)) {
-            $this->addError($field, "The {$field} field must be a valid email address.");
+            $this->addError($field, $this->message('email', $field));
         }
     }
 
@@ -148,7 +150,7 @@ class Validator
     {
         $confirmKey = $field . '_confirmation';
         if (($data[$confirmKey] ?? null) !== $value) {
-            $this->addError($field, "The {$field} confirmation does not match.");
+            $this->addError($field, $this->message('confirmed', $field));
         }
     }
 
@@ -158,11 +160,11 @@ class Validator
         $isNumeric = in_array('integer', $ruleList, true) || in_array('numeric', $ruleList, true);
         if ($isNumeric && is_numeric($value)) {
             if ((float) $value < $min) {
-                $this->addError($field, "The {$field} must be at least {$min}.");
+                $this->addError($field, $this->message('min_numeric', $field, ['min' => $min]));
             }
         } else {
             if (mb_strlen((string) $value) < $min) {
-                $this->addError($field, "The {$field} must be at least {$min} characters.");
+                $this->addError($field, $this->message('min_string', $field, ['min' => $min]));
             }
         }
     }
@@ -173,11 +175,11 @@ class Validator
         $isNumeric = in_array('integer', $ruleList, true) || in_array('numeric', $ruleList, true);
         if ($isNumeric && is_numeric($value)) {
             if ((float) $value > $max) {
-                $this->addError($field, "The {$field} may not exceed {$max}.");
+                $this->addError($field, $this->message('max_numeric', $field, ['max' => $max]));
             }
         } else {
             if (mb_strlen((string) $value) > $max) {
-                $this->addError($field, "The {$field} may not exceed {$max} characters.");
+                $this->addError($field, $this->message('max_string', $field, ['max' => $max]));
             }
         }
     }
@@ -185,7 +187,7 @@ class Validator
     private function checkIn(string $field, mixed $value, array $allowed): void
     {
         if ($value !== null && !in_array((string) $value, $allowed, true)) {
-            $this->addError($field, "The {$field} must be one of: " . implode(', ', $allowed) . ".");
+            $this->addError($field, $this->message('in', $field, ['values' => implode(', ', $allowed)]));
         }
     }
 
@@ -193,21 +195,21 @@ class Validator
     {
         $valid = [true, false, 1, 0, '1', '0', 'true', 'false'];
         if ($value !== null && !in_array($value, $valid, true)) {
-            $this->addError($field, "The {$field} field must be a boolean.");
+            $this->addError($field, $this->message('boolean', $field));
         }
     }
 
     private function checkNumeric(string $field, mixed $value): void
     {
         if ($value !== null && !is_numeric($value)) {
-            $this->addError($field, "The {$field} field must be numeric.");
+            $this->addError($field, $this->message('numeric', $field));
         }
     }
 
     private function checkUrl(string $field, mixed $value): void
     {
         if ($value !== null && !filter_var($value, FILTER_VALIDATE_URL)) {
-            $this->addError($field, "The {$field} field must be a valid URL.");
+            $this->addError($field, $this->message('url', $field));
         }
     }
 
@@ -216,21 +218,21 @@ class Validator
         if ($value === null) return;
         $d = \DateTime::createFromFormat('Y-m-d', (string) $value);
         if (!$d || $d->format('Y-m-d') !== (string) $value) {
-            $this->addError($field, "The {$field} field must be a valid date (YYYY-MM-DD).");
+            $this->addError($field, $this->message('date', $field));
         }
     }
 
     private function checkAlpha(string $field, mixed $value): void
     {
         if ($value !== null && !ctype_alpha((string) $value)) {
-            $this->addError($field, "The {$field} field may only contain letters.");
+            $this->addError($field, $this->message('alpha', $field));
         }
     }
 
     private function checkAlphaNum(string $field, mixed $value): void
     {
         if ($value !== null && !ctype_alnum((string) $value)) {
-            $this->addError($field, "The {$field} field may only contain letters and numbers.");
+            $this->addError($field, $this->message('alpha_num', $field));
         }
     }
 
@@ -249,7 +251,7 @@ class Validator
             throw new \InvalidArgumentException("Validator: invalid regex pattern [{$pattern}] for field [{$field}].");
         }
         if (!preg_match($pattern, (string) $value)) {
-            $this->addError($field, "The {$field} format is invalid.");
+            $this->addError($field, $this->message('regex', $field));
         }
     }
 
@@ -297,8 +299,25 @@ class Validator
         $count = (int) ($stmt->fetch(\PDO::FETCH_ASSOC)['cnt'] ?? 0);
 
         if ($count > 0) {
-            $this->addError($field, "The {$field} has already been taken.");
+            $this->addError($field, $this->message('unique', $field));
         }
+    }
+
+    /**
+     * Translated message for a failed rule (spartan.validation.{rule}).
+     * :field is the field's display name from spartan.attributes.{field}
+     * when the application defines one, else the raw field name.
+     */
+    private function message(string $rule, string $field, array $params = []): string
+    {
+        $translator   = Translator::getInstance();
+        $attributeKey = "spartan.attributes.{$field}";
+        $attribute    = $translator->get($attributeKey);
+
+        return $translator->get(
+            "spartan.validation.{$rule}",
+            ['field' => $attribute === $attributeKey ? $field : $attribute] + $params
+        );
     }
 
     private function addError(string $field, string $message): void

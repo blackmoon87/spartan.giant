@@ -25,6 +25,9 @@ use Spartan\Application;
  *   lang/en/app.php   → return ['welcome' => 'Hello, :name!', ...]
  *   lang/ar/app.php   → return ['welcome' => 'أهلاً :name!', ...]
  *
+ * Core messages (validation, HTTP errors) ship in framework/lang/{locale}/spartan.php;
+ * an application's lang/{locale}/spartan.php overrides them key by key.
+ *
  * Keys use dot notation: 'filename.nested.key'
  *   trans('app.notifications.title') → lang/{locale}/app.php['notifications']['title']
  *
@@ -304,15 +307,37 @@ class Translator
             return;
         }
 
-        $filePath = $this->langPath . '/' . $locale . '/' . $group . '.php';
+        // The framework ships its own messages (framework/lang/{locale}/spartan.php);
+        // the application's file for the same group overrides them key by key.
+        $framework = $this->readFile(self::frameworkLangPath() . '/' . $locale . '/' . $group . '.php');
+        $app       = $this->langPath === self::frameworkLangPath()
+            ? []
+            : $this->readFile($this->langPath . '/' . $locale . '/' . $group . '.php');
 
+        $this->loaded[$cacheKey] = array_replace_recursive($framework, $app);
+    }
+
+    /**
+     * Read one language file; a missing or malformed file reads as empty.
+     *
+     * @return array<string, mixed>
+     */
+    private function readFile(string $filePath): array
+    {
         if (!file_exists($filePath)) {
-            $this->loaded[$cacheKey] = [];
-            return;
+            return [];
         }
 
         $data = require $filePath;
-        $this->loaded[$cacheKey] = is_array($data) ? $data : [];
+        return is_array($data) ? $data : [];
+    }
+
+    /**
+     * Directory of the language files bundled with the framework.
+     */
+    public static function frameworkLangPath(): string
+    {
+        return dirname(__DIR__, 2) . '/lang';
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -369,7 +394,7 @@ class Translator
             }
         }
 
-        // Fallback: assume framework is at project_root/framework/src/
-        return dirname(__DIR__, 2) . '/lang';
+        // No application: only the framework's bundled messages are available.
+        return self::frameworkLangPath();
     }
 }

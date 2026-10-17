@@ -7,6 +7,7 @@ namespace Spartan\Middlewares;
 use Spartan\Middleware;
 use Spartan\Request;
 use Spartan\Response;
+use Spartan\Router;
 use Spartan\Application;
 
 class CsrfMiddleware extends Middleware
@@ -48,7 +49,7 @@ class CsrfMiddleware extends Middleware
                 $response->setStatusCode(403);
 
                 if ($request->isAjax()) {
-                    $response->json(['error' => 'Invalid or expired CSRF token.'], 403);
+                    $response->json(['error' => trans('spartan.http.csrf')], 403);
                     return;
                 }
 
@@ -57,13 +58,10 @@ class CsrfMiddleware extends Middleware
                 $response->setHeader('Content-Type', 'text/html; charset=utf-8');
                 try {
                     $response->setContent(Application::$app->view->render('error_403', [
-                        'message' => 'Invalid or expired security token. Please reload the page and try again.',
+                        'message' => trans('spartan.http.csrf_page'),
                     ]));
                 } catch (\Throwable $e) {
-                    $response->setContent(
-                        '<h1>403 Forbidden</h1><p>Invalid or expired security token. '
-                        . 'Please reload the page and try again.</p>'
-                    );
+                    $response->setContent(Router::plainErrorPage('spartan.http.title_403', 'spartan.http.csrf_page'));
                 }
                 return;
             }

@@ -109,6 +109,15 @@ Examples:
 - `N` in `min`/`max` is an integer.
 - An unknown rule name throws `InvalidArgumentException`: check spelling
   against the table above.
-- Messages are English by default, one per field, e.g. `The email field must be a valid email address.`
+- Messages follow the current locale, one per field, e.g. `The email field must be a valid email address.`
+  They ship in `framework/lang/{en,ar}/spartan.php` (`spartan.validation.*`). To reword a
+  message or show a friendly field name, create `lang/{locale}/spartan.php` in the app —
+  its keys override the framework's one by one:
+  ```php
+  return [
+      'validation' => ['required' => 'Please fill in :field.'],
+      'attributes' => ['email' => 'email address'],   // :field for the email field
+  ];
+  ```
 - When presenting custom validation feedback, flash errors, or mapped messages to the user/frontend, always pass them through the translation engine (`trans('group.key')` or `@lang()`).
 - Nested/array fields (`items.*`) are not supported: validate each value yourself.

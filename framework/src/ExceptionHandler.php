@@ -30,8 +30,8 @@ class ExceptionHandler
 
         if ($request->isAjax()) {
             $response->json([
-                'error' => '500 Internal Server Error',
-                'message' => ($config['app']['debug'] ?? false) ? $e->getMessage() : 'An unexpected error occurred.'
+                'error' => trans('spartan.http.server_error'),
+                'message' => ($config['app']['debug'] ?? false) ? $e->getMessage() : trans('spartan.http.server_error_page')
             ], 500);
             $response->send();
             return;
@@ -40,14 +40,14 @@ class ExceptionHandler
         $response->send();
 
         if ($config['app']['debug'] ?? false) {
-            echo "<h1>500 Internal Server Error</h1>";
+            echo "<h1>" . htmlspecialchars(trans('spartan.http.title_500'), ENT_QUOTES, 'UTF-8') . "</h1>";
             echo "<p>" . htmlspecialchars($e->getMessage()) . "</p>";
             echo "<pre>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
         } else {
             try {
-                echo Application::$app->view->render('error_500', ['message' => 'An unexpected error occurred.']);
+                echo Application::$app->view->render('error_500', ['message' => trans('spartan.http.server_error_page')]);
             } catch (\Throwable $err) {
-                echo "<h1>500 Internal Server Error</h1><p>An unexpected error occurred.</p>";
+                echo Router::plainErrorPage('spartan.http.title_500', 'spartan.http.server_error_page');
             }
         }
     }
