@@ -18,12 +18,16 @@ abstract class TestCase extends BaseTestCase
     protected Application $app;
     protected string $work;
 
+    /** Session contents before the test, restored afterwards. */
+    private array $sessionSnapshot = [];
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->app  = $GLOBALS['SPARTAN_TEST_APP'];
         $this->work = $GLOBALS['SPARTAN_TEST_WORKDIR'];
+        $this->sessionSnapshot = $_SESSION ?? [];
 
         $this->resetRequestState();
         $this->seedFixtures();
@@ -38,6 +42,11 @@ abstract class TestCase extends BaseTestCase
         Gate::$abilities = [];
         Gate::$policies  = [];
         Request::setTrustedProxies([]);
+
+        // Flash messages, validation errors and a session that Session::start()
+        // emptied (it treats a re-start as a new worker request) must not reach
+        // the next test: all tests share one Application and one session.
+        $_SESSION = $this->sessionSnapshot;
 
         parent::tearDown();
     }
