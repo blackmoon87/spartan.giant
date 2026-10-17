@@ -14,6 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with `@lang()` or `{{ }}` are escaped once, as before. Compiled views are
   rebuilt automatically (compiler version 4).
 
+### Fixed
+
+- `QueryBuilder`: `first()`, `count()`, `exists()` and the count query inside
+  `paginate()` now close their cursor. Statements are cached and reused, and
+  one left mid-result kept its SQLite read lock (or WAL snapshot) for the rest
+  of the process: under concurrent writes most writers failed at once with
+  "database is locked", and the connection's own later queries with error 21.
+  20 parallel writers went from 65 of 1,000 ticket flows succeeding to 1,000
+  of 1,000 (and 5,000 of 5,000 with 50 writers). `cursor()` also releases its
+  lock when the caller stops iterating early.
+- `DatabaseQueueDriver::fetchPending()` claims jobs with `BEGIN IMMEDIATE` on
+  SQLite, so parallel workers wait for each other instead of failing with
+  "database is locked" (16 workers, 3,000 jobs: 0 errors, every job run once).
+
 ### Changed
 
 - `QueryBuilder::pluck()`: a bare column name that is ambiguous after `join()`
