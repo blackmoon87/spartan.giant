@@ -17,7 +17,6 @@ Source: `framework/src/View.php` (the compiler is `compileString()`), `helpers.p
 <html lang="{{ current_locale() }}" dir="{{ is_rtl() ? 'rtl' : 'ltr' }}">
 <head>
     <meta charset="UTF-8">
-    <meta name="csrf-token" content="{{ $this->csrfTokenValue() }}">
     <title>@yield('title')</title>
 </head>
 <body>
@@ -119,7 +118,10 @@ Helpers: `old('field')`, `errors()` / `errors('field')`, `url('/path')`,
 After a failed FormRequest the browser is redirected back; `old()` and
 `errors()` then return the submitted values and messages.
 
-AJAX (fetch) with CSRF:
+AJAX (fetch) with CSRF — put the token in a `<meta>` tag on the pages whose
+JavaScript sends requests (`<meta name="csrf-token" content="{{ $this->csrfTokenValue() }}">`).
+Sessions are lazy: asking for the token starts one, so keep it off pages
+that do not need it, or every visitor of every page gets a session file.
 
 ```js
 fetch('/posts/5/like', {

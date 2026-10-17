@@ -186,8 +186,16 @@ and CSRF exclusions come from the cache, but aliases and global middleware do no
 ## CSRF
 
 Global by default. Forms: `@csrf`. AJAX/fetch: send header `X-CSRF-Token` with
-the value of `$this->csrfTokenValue()` (put it in a `<meta>` tag in the layout).
-JSON bodies may carry `_csrf` instead.
+the value of `$this->csrfTokenValue()` (put it in a `<meta>` tag on the pages
+that send AJAX). JSON bodies may carry `_csrf` instead.
+
+Sessions are lazy: a request without the session cookie gets no session (and no
+session file) until something is written — a login, a flash message, or the
+CSRF token, which is created the first time `@csrf` / `csrfTokenValue()` runs.
+Reads (`get()`, `has()`, `auth()->check()`) never start one. A state-changing
+request from a client with no session is rejected (403), as it carries no
+valid token. Token-authenticated APIs (`excludeCsrf('/api/*')`) never create
+sessions.
 
 ## Errors
 

@@ -14,6 +14,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with `@lang()` or `{{ }}` are escaped once, as before. Compiled views are
   rebuilt automatically (compiler version 4).
 
+### Changed
+
+- Sessions are lazy. A request without the session cookie gets no session —
+  and no session file — until something is written to it (a login, a flash
+  message, a form's CSRF token). Previously every request started one and the
+  CSRF token was generated at boot, so every bot, health check and API call
+  wrote a session file: 20,000 cookieless requests left 20,000 files, and
+  throughput fell as the directory grew. Hello-world framework cost went from
+  ~192 µs to ~68 µs; bearer-token API requests write no session at all.
+  - The CSRF token is created on first use: `@csrf`, `csrfTokenValue()` or the
+    new `Application::csrfToken()`.
+  - `Request::validateCsrf()` rejects a request whose session holds no token
+    (an empty submitted token no longer compares equal to a missing one).
+  - A failed FormRequest flashes errors and old input only when it redirects
+    back to a form; JSON clients get the 422 body and no session.
+  - A session write after output has been sent logs one warning per request
+    (the data still works for that request, as before).
+  - The root and helpdesk layouts no longer print a `csrf-token` `<meta>` tag
+    (neither has JavaScript); add it only to pages that send AJAX requests.
+
+
+- `QueryBuilder::pluck()`: a bare column name that is ambiguous after `join()`
+  now throws a `PDOException` that says to qualify it (e.g.
+  `pluck('users.name')`) instead of only the raw driver error, which is kept
+  as the previous exception. Behaviour is otherwise unchanged.
+
 ### Fixed
 
 - `QueryBuilder`: `first()`, `count()`, `exists()` and the count query inside
@@ -27,13 +53,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `DatabaseQueueDriver::fetchPending()` claims jobs with `BEGIN IMMEDIATE` on
   SQLite, so parallel workers wait for each other instead of failing with
   "database is locked" (16 workers, 3,000 jobs: 0 errors, every job run once).
-
-### Changed
-
-- `QueryBuilder::pluck()`: a bare column name that is ambiguous after `join()`
-  now throws a `PDOException` that says to qualify it (e.g.
-  `pluck('users.name')`) instead of only the raw driver error, which is kept
-  as the previous exception. Behaviour is otherwise unchanged.
 
 ### Added
 

@@ -421,8 +421,7 @@ class View implements ViewInterface
      */
     public function csrfToken(): string
     {
-        $token = isset(Application::$app) ? (Application::$app->session->get('_csrf_token') ?? '') : '';
-        return '<input type="hidden" name="_csrf" value="' . $token . '">';
+        return '<input type="hidden" name="_csrf" value="' . $this->csrfTokenValue() . '">';
     }
 
     /**
@@ -430,7 +429,7 @@ class View implements ViewInterface
      */
     public function csrfTokenValue(): string
     {
-        return isset(Application::$app) ? (Application::$app->session->get('_csrf_token') ?? '') : '';
+        return isset(Application::$app) ? Application::$app->csrfToken() : '';
     }
 
     /**

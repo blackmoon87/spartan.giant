@@ -257,25 +257,31 @@ class Request
             return true;
         }
 
+        // No token in the session (sessions are lazy: a visitor who never
+        // loaded a form has none) means nothing can match. Checked first:
+        // hash_equals('', '') is true, so an empty submitted token would
+        // otherwise pass.
+        $sessionToken = Application::$app->session->get('_csrf_token');
+        if (!is_string($sessionToken) || $sessionToken === '') {
+            return false;
+        }
+
         // 1. Check standard header sent by AJAX/fetch clients
         $headerToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? null;
         if ($headerToken !== null) {
-            $sessionToken = Application::$app->session->get('_csrf_token');
-            return hash_equals((string) $sessionToken, (string) $headerToken);
+            return hash_equals($sessionToken, (string) $headerToken);
         }
 
         // 2. Check form-encoded POST body
         if (isset($_POST['_csrf'])) {
-            $sessionToken = Application::$app->session->get('_csrf_token');
-            return hash_equals((string) $sessionToken, (string) $_POST['_csrf']);
+            return hash_equals($sessionToken, (string) $_POST['_csrf']);
         }
 
         // 3. Check JSON body (Content-Type: application/json).
         // Reuses the memoised parse — php://input is only read once per request.
         $jsonToken = $this->getJsonParams()['_csrf'] ?? null;
         if ($jsonToken !== null) {
-            $sessionToken = Application::$app->session->get('_csrf_token');
-            return hash_equals((string) $sessionToken, (string) $jsonToken);
+            return hash_equals($sessionToken, (string) $jsonToken);
         }
 
         // No token found by any method

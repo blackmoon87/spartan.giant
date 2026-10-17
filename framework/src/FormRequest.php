@@ -83,23 +83,28 @@ abstract class FormRequest extends Request
      */
     protected function failedValidation(array $errors): void
     {
-        $response = Application::$app->response;
-        $session = Application::$app->session;
+        $response  = Application::$app->response;
+        $session   = Application::$app->session;
+        $wantsJson = $this->isAjax() || str_contains($this->header('Content-Type') ?? '', 'application/json');
 
-        // Flash old input and errors. Password fields are never written to
+        // Flash old input and errors for the form we redirect back to. A JSON
+        // client gets them in the 422 body instead — flashing would only start
+        // a session it never uses. Password fields are never written to
         // session storage in plaintext.
-        $session->setFlash('validation_errors', $errors);
-        $session->setFlash('old_input', array_filter(
-            $this->getBody(),
-            fn($key) => !str_contains(strtolower((string) $key), 'password'),
-            ARRAY_FILTER_USE_KEY
-        ));
+        if (!$wantsJson) {
+            $session->setFlash('validation_errors', $errors);
+            $session->setFlash('old_input', array_filter(
+                $this->getBody(),
+                fn($key) => !str_contains(strtolower((string) $key), 'password'),
+                ARRAY_FILTER_USE_KEY
+            ));
+        }
 
         if (defined('SPARTAN_TESTING') && SPARTAN_TESTING) {
             throw new \RuntimeException("Validation Failed: " . json_encode($errors));
         }
 
-        if ($this->isAjax() || str_contains($this->header('Content-Type') ?? '', 'application/json')) {
+        if ($wantsJson) {
             $response->json([
                 'message' => trans('spartan.validation.invalid'),
                 'errors' => $errors

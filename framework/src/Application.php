@@ -98,10 +98,23 @@ class Application
         }
         $this->container->singleton(Translation\Translator::class, fn() => $translator);
 
-        // Generate a cryptographically secure CSRF token if not already in session
-        if (!$this->session->get('_csrf_token')) {
-            $this->session->set('_csrf_token', bin2hex(random_bytes(32)));
+        // The CSRF token is created on first use (csrfToken()), not here:
+        // generating it for every request started a session — and wrote a
+        // session file — for every visitor, bot and API call.
+    }
+
+    /**
+     * This session's CSRF token, created (and the session started) on first
+     * use — when a form renders @csrf or a page asks for csrfTokenValue().
+     */
+    public function csrfToken(): string
+    {
+        $token = $this->session->get('_csrf_token');
+        if (!is_string($token) || $token === '') {
+            $token = bin2hex(random_bytes(32));
+            $this->session->set('_csrf_token', $token);
         }
+        return $token;
     }
 
     public function run(): void
@@ -158,11 +171,6 @@ class Application
         // Re-open the session for THIS request (it was closed after the last one).
         if (method_exists($this->session, 'start')) {
             $this->session->start($this->request);
-        }
-
-        // A fresh CSRF token for brand-new sessions, mirroring boot behaviour.
-        if (!$this->session->get('_csrf_token')) {
-            $this->session->set('_csrf_token', bin2hex(random_bytes(32)));
         }
 
         // The locale lives in THIS request's session; boot only saw the first one.
