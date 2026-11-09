@@ -14,13 +14,17 @@ Source: `framework/src/View.php` (the compiler is `compileString()`), `helpers.p
 
 ```blade
 <!DOCTYPE html>
-<html lang="{{ current_locale() }}" dir="{{ is_rtl() ? 'rtl' : 'ltr' }}">
+<html lang="{{ current_locale() }}" dir="{{ is_rtl() ? 'rtl' : 'ltr' }}" data-theme="dark" data-palette="blue" data-glass="2">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title')</title>
+    <link rel="icon" href="{{ asset('favicon.png') }}">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
 </head>
 <body>
-    @flash('success')<div class="alert">{{ $flashMsg }}</div>@endflash
+    @flash('success')<div class="alert success">{{ $flashMsg }}</div>@endflash
+    @flash('error')<div class="alert error">{{ $flashMsg }}</div>@endflash
     @yield('content')
 </body>
 </html>

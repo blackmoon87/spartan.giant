@@ -13,6 +13,7 @@ close to Laravel in shape but different in detail (see *Laravel habits* below).
 | models, queries, relations, transactions, migrations     | `docs/ai/database.md`         |
 | routes, controllers, requests, responses, middleware     | `docs/ai/http.md`             |
 | Blade views, layouts, forms, flash messages, translation | `docs/ai/views.md`            |
+| default UI styling (Nimbra frosted glass, dynamic palettes) | `docs/ai/styling.md`        |
 | login, registration, logout, roles, permissions, gates   | `docs/ai/auth.md`             |
 | validation rules or a FormRequest                        | `docs/ai/validation.md`       |
 | services, DI container, events, queue, cache, logs, uploads, config, CLI | `docs/ai/services.md` |

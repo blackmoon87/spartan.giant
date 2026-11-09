@@ -932,23 +932,61 @@ When constructing, styling, or modifying views in Spartan, resolve styles in thi
 │    box-sizing: border-box, min-width: 0, overflow-x: hidden, clamp()    │
 │    → ALWAYS APPLIED to guarantee 320px–4K layout stability without burst│
 ├─────────────────────────────────────────────────────────────────────────┤
-│ 4. OPTIONAL STYLE PRESETS (Mutually Exclusive — Pick One Per Project)   │
-│    a) GLASS-OVER-SCENE — frosted panel system over a painted CSS scene  │
-│    b) 3D ISOMETRIC STACKED BLOCKS — chunky toy-like layered tower       │
-│    Applied ONLY when the user explicitly requests one of these presets  │
+│ 4. DEFAULT SPARTAN STYLING: NIMBRA FROSTED GLASS & DYNAMIC PALETTE      │
+│    (Active by default across public/css/app.css & main.blade.php)       │
+│    - Frosted Navy Glass with Specular Highlights & Ambient 4-Orb Aura   │
+│    - Dynamic Palettes: data-palette="blue|green|red|yellow|custom"      │
+│    - Theme Modes: data-theme="dark|light" (defaults to dark)            │
+│    - Local grain noise (public/textures/grain.png), strict CSP compliant│
 ├─────────────────────────────────────────────────────────────────────────┤
-│ 5. DEFAULT SPARTAN BASE FALLBACK (LOWEST PRIORITY)                      │
-│    Clean minimal foundation applied only if zero styles are specified   │
+│ 5. BASE FALLBACK RESET (LOWEST PRIORITY)                                │
+│    Minimal browser resets if CSS fails to load                          │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Flow Execution Rules for Developers & AI Agents:
-1. **Developer Explicit Intent Always Wins**: If custom colors, stylesheets, or layouts are provided, bypass all default framework styling presets and apply the developer's styling directly.
-2. **Modular File Flow Structure**:
+1. **Developer Explicit Intent Always Wins**: If custom colors, stylesheets, or layouts are provided, bypass framework defaults and apply the developer's custom styling directly.
+2. **Default Visual Style (Nimbra Frosted Glass)**: All Spartan views, layouts, and components default to the **Nimbra Frosted Glass & Dynamic Palette Design System** defined in `public/css/app.css`.
+3. **Modular File Flow Structure**:
    - `public/css/reset.css` &rarr; Section 12.4 anti-burst foundation and document reset.
-   - `public/css/app.css` &rarr; Global design tokens, typography, navigation, and common components.
+   - `public/css/app.css` &rarr; Global design tokens, Nimbra frosted glass engine, dynamic palettes, navigation, and common components.
    - `public/css/pages/{module}.css` &rarr; Module-specific page grids, tables, and views.
-3. **Non-Negotiable Safety**: Whatever visual styling the developer chooses, the structural reset (`min-width: 0`, `overflow-wrap: break-word`, `overflow-x: hidden`) must remain active so views never horizontally deform or burst on mobile devices.
+4. **Non-Negotiable Safety**: Whatever visual styling the developer chooses, the structural reset (`min-width: 0`, `overflow-wrap: break-word`, `overflow-x: hidden`) must remain active so views never horizontally deform or burst on mobile devices.
+
+---
+
+# Spartan Default Design System: Nimbra Frosted Glass & Dynamic Palette
+
+The official default frontend styling of Spartan MVC (`spartan.giant`) is the **Nimbra Frosted Glass & Motion System**. It delivers a high-end, frosted navy glass aesthetic with hardware-accelerated ambient light meshes, specular highlights, and single-token dynamic palette switching.
+
+### 1. Root HTML Configuration (`src/Views/layouts/main.blade.php`)
+```html
+<html lang="{{ current_locale() }}" dir="{{ is_rtl() ? 'rtl' : 'ltr' }}" data-theme="dark" data-palette="blue" data-glass="2">
+```
+
+### 2. Available Themes & Dynamic Palettes
+| Attribute | Allowed Values | Effect |
+|---|---|---|
+| `data-theme` | `"dark"` (default), `"light"` | Switches between deep navy frosted glass and bright frosted ceramic. |
+| `data-palette` | `"blue"` (default) | Sapphire Blue primary accents (`#3d6bff`). |
+| `data-palette` | `"green"` | Emerald Green primary accents (`#10b981`). |
+| `data-palette` | `"red"` | Crimson Red primary accents (`#ef4444`). |
+| `data-palette` | `"yellow"` | Amber Gold primary accents (`#eab308`). |
+| `data-palette` | `"custom"` | Uses single CSS variable `--seed: #hex` with CSS `color-mix()` to dynamically generate the entire gradient, aura, glow, and border palette. |
+| `data-glass` | `"2"` (default, 26px blur), `"1"` (12px), `"0"` (flat) | Controls frosted glass blur depth. |
+
+### 3. Applying Any Custom Brand Color
+```html
+<html lang="en" data-theme="dark" data-palette="custom" style="--seed: #8b5cf6">
+```
+
+### 4. Primary Specular Glass Component Classes
+- `.glass`, `.card`, `.glass-card`, `.panel`, `.kpi`: Render the dual-specular highlight box (`background: linear-gradient(180deg, var(--glass-top), var(--card) 45%, var(--card))`, `box-shadow: inset 0 1px 0 var(--glass-hi), inset 0 0 0 1px var(--glass-rim), var(--shadow)`).
+- `.btn`: Primary pill with gradient (`linear-gradient(180deg, var(--accent-from), var(--accent-to))`), glow, and kinetic hover elevation.
+- `.btn.secondary`, `.btn-secondary`: Frosted glass button with subtle border.
+- `.tile-grid` / `.tile`: Responsive grid of feature cards with accent indicators.
+- `.status-pill.success`: Glowing green status pill with pulsing indicator dot.
+- `.table-wrap` / `table`: Glass table with specular header and hover highlighting.
 
 ---
 
